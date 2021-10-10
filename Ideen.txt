@@ -1,0 +1,11 @@
+- Live Wert Signal in Details und Liste Config anzigen
+- Schnellwechsel zu konfig, dashboard, inbetriebnahme
+- Suche wie krunner (verschiedene Scopes in Tenant(> als Prefix?), Tenant übergeifend)
+- Schnellwechsel zu anderem mandanten 
+- Automatisches konfig senden nach signal speichern (2 modi 1x snacbkar mit Button zum Konfig senden, 1x sofort nach Signaländerung oder Conditionänderung)
+- Custom Farbschema
+- Dashboard kopieren funktion
+- Live Formeln berechnen
+- Bessere Homepage (he)
+- Statusbar als Footer (wie vscode, vlt HealthChecks?, Quicklinks?)
+- Kopieren einzelner entities (in andere systeme etc. )

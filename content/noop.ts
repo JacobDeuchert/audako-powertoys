@@ -1,0 +1,1 @@
+// Empty .ts file to satisfy the typescript compiler that there is any typescript file in the workspace
