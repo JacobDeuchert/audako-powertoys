@@ -11,6 +11,8 @@ export class Field<T> {
 export class ConfigurationEntity {
     public Id: string;
 
+    public Path: string[];
+
     public Name: Field<string>
     public Description: Field<string>;
 

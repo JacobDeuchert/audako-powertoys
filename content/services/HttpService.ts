@@ -4,6 +4,7 @@ import { singleton } from 'tsyringe';
 import { AppConfig } from '../models/app.config';
 import { ConfigurationEntity, EntityType } from '../models/configuration-entity';
 import { SignalType } from '../models/signal';
+import { TenantView } from '../models/tenant-view';
 
 @singleton()
 export class HttpService {
@@ -48,6 +49,25 @@ export class HttpService {
 
         const response = await axios.post<{$filter: string, $paging: string, $projection: string}, AxiosResponse<Partial<T>[]>>(url, queryBody, {headers: headers});
         return response.data;
+    }
+
+    public async getTopTenants(): Promise<TenantView[]> {
+
+        const appConfig = this._appConfig.value;
+        
+        const url = `${appConfig.Services.BaseUri}${appConfig.Services.Structure}/tenant/top`;
+        const headers = this._getAuthorizationHeader();
+        const response = await axios.get<TenantView[]>(url, {headers: headers});
+        return response.data;
+    }
+
+    public async getNextTenants(tenantId: string): Promise<TenantView[]> {
+        const appConfig = this._appConfig.value;
+        
+        const url = `${appConfig.Services.BaseUri}${appConfig.Services.Structure}/tenant/${tenantId}/next`;
+        const headers = this._getAuthorizationHeader();
+        const response = await axios.get<TenantView[]>(url, {headers: headers});
+        return response.data; 
     }
 
     private _getAuthorizationHeader(): {[p: string]: string} {

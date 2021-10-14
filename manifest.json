@@ -7,7 +7,7 @@
     "service_worker": "background/build/background.js"
   },
   "permissions": ["storage", "webRequest", "scripting"],
-  "host_permissions": ["*://water.audako.net/*"],
+  "host_permissions": ["*://water.audako.net/*", "*://jumo.cloud/*"],
   "web_accessible_resources": [{
     "resources": ["content/build/inject.js"],
     "matches": ["<all_urls>"]
@@ -16,7 +16,7 @@
     "default_popup": "popup/popup.html"
   },
   "content_scripts": [{
-    "matches": ["https://water.audako.net/*"],
+    "matches": ["https://water.audako.net/*", "https://www.jumo.cloud/*"],
     "js": ["content/build/bundle.js"],
     "css": ["content/build/bundle.css"]
   }]
