@@ -5,5 +5,6 @@ export class TenantView {
   public Root: string;
   public Enabled: boolean;
   public Locked: boolean;
-
+  public Public: boolean;
+  public ApplicationSettings: {[p: string]: any};
 }

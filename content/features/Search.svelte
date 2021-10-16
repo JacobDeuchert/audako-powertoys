@@ -5,101 +5,143 @@
   import { SignalRService } from '../services/SignalRService';
   import { HttpService } from '../services/HttpService';
   import { container } from 'tsyringe';
-import { EntityType } from '../models/configuration-entity';
-import { Group } from '../models/group';
-import { debounceTime, from, Subject } from 'rxjs';
-import { UrlUtils } from '../utils/url-utils';
-import { TenantView } from '../models/tenant-view';
+  import { EntityType } from '../models/configuration-entity';
+  import { Group } from '../models/group';
+  import { debounceTime, filter, firstValueFrom, from, map, Subject } from 'rxjs';
+  import { UrlUtils } from '../utils/url-utils';
+  import { TenantView } from '../models/tenant-view';
+import { Signal } from '../models/signal';
+import App from '../App.svelte';
+import { SvelteComponent } from 'svelte';
+
+  type SearchHistory  = {
+
+  }
+  type SearchData = {
+    indexedTenants: Partial<TenantView[]>,
+    searchHistory: SearchHistory
+  } 
 
   const httpService = container.resolve(HttpService);
-  const signalRService = container.resolve(SignalRService); 
+  const signalRService = container.resolve(SignalRService);
+
+  let searchData: SearchData;
 
   let searchOpen: boolean = false;
-  let searchString: string = "";
+  let searchString: string = '';
   let selectedItem: number = 0;
 
-  let groupResults: Group[] = [];
+  let inputComponent: SvelteComponent;
+  let listComponent: SvelteComponent;
 
+  let matchedTenants: TenantView[] = [];
+  let matchedGroups: Group[] = [];
+  let matchedSignals: Signal[] = [];
+  // let matchedDashboards: Dashboard
 
   let searchChanged$: Subject<string> = new Subject<string>();
 
-  $:searchChanged$.next(searchString);
-  
+  $: searchChanged$.next(searchString);
 
-  searchChanged$.asObservable().pipe(debounceTime(300)).subscribe(searchString => {
-    console.log('Searching', searchString);
-    if (searchString?.length > 0) {
-      queryGroups(searchString);
-    }
-  });
+  searchChanged$
+    .asObservable()
+    .pipe(
+      debounceTime(300), 
+      filter(x => typeof(x) === 'string' && x?.length > 1),
+      map(search => search.trim().toLowerCase()),
+    ).subscribe(async (searchString) => {
+      console.log('Searching', searchString);
+      
+      const prefixedSearch = searchString.startsWith(':') || searchString.startsWith('<');
+
+      if (prefixedSearch) {
+      } else {
+        
+        matchedTenants = await queryTenants(searchString);
+        matchedGroups = await queryGroups(searchString);
+      }
+    });
 
 
-  window.addEventListener('keydown', (event: KeyboardEvent) => {
+  window.addEventListener('keydown', (event: KeyboardEvent) => { 
     console.log(event);
     if (event.ctrlKey && event.code === 'Space') {
-      console.log('OpenDialog');
       searchOpen = true;
+
+      const inputElement = inputComponent.getElement() as HTMLInputElement;
+      inputElement.select(); 
     }
 
-    if (searchOpen && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-      const textField = document.getElementsByClassName('search-text-field').item(0);
+    const excludedFocusKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'] 
+    if (searchOpen && !event.ctrlKey && !event.shiftKey && !event.altKey && !excludedFocusKeys.includes(event.code)) {
       
+      const textField = document
+        .getElementsByClassName('search-text-field')
+        .item(0);
+
       if (textField) {
         const input = textField.getElementsByTagName('input').item(0);
 
-        console.log(document.activeElement);
         if (document.activeElement !== input) {
-          console.log('focus');
           input.focus();
         }
       }
     }
-  }); 
+  });
 
   window.addEventListener('keyup', (event: KeyboardEvent) => {
-    console.log(event);
-    if (event.code === 'ArrowUp') {
-      
-    }
+
+    const inputElement = inputComponent.getElement();
+    const listElement = listComponent.getElement();
 
     if (event.code === 'ArrowDown') {
-
+      const firstListElement = listElement.getElementsByTagName('li').item(0);
+      if (firstListElement && document.activeElement === inputElement) {
+        firstListElement.focus();
+      }
     }
   });
 
   function openGroupConfiguration(group: Group) {
-    const tenantId = UrlUtils.getTenantIdFromUrl(window.location.pathname);
-		const newUrl = `/${tenantId}/config/${group.Id}`;
-		console.log(newUrl);
-		window.location.href = newUrl;
-  }
+    const tenant = searchData?.indexedTenants?.find(x => x.Root === group.Path[0] || x.Root === group.Id);
 
-  async function queryGroups(searchString: string): Promise<void> {
-    const filter = {'Name.Value': {$regex: searchString, $options: 'i'}};
-
-    const result = await httpService.queryConfiguration<Group>(EntityType.Group, filter);
-
-    groupResults = result.sort((a, b) => a.Path.length - b.Path.length).splice(0, 4) as Group[]; 
-  }
-
-  async function indexTenants() {
-
-    const totalTenants = [];
-
-    const topTenants = await httpService.getTopTenants();
-    totalTenants.push(...topTenants);
-
-    for (const tenant of topTenants) {
-      const subTenants = await _requestTenantsRecursive(tenant.Id);
-      totalTenants.push(...subTenants);
+    if (tenant) {
+      const newUrl = `/${tenant.Id}/config/${group.Id}`;
+      console.log(newUrl);
+      window.location.href = newUrl;
     }  
+  }
 
-    console.log(totalTenants);
-    console.log((new TextEncoder().encode(JSON.stringify(totalTenants))).length)
+  async function queryGroups(searchString: string): Promise<Group[]> {
+
+    const searchParts = searchString.split(' ');
+    const fullMatchFilter = { 'Name.Value': { $regex: searchString, $options: 'i' } };
+    const partMatchFilter =  {$and: searchParts.map(x => ({ 'Name.Value': { $regex: x, $options: 'i' } }))}
+    const filter = {$or: [fullMatchFilter, partMatchFilter]};
+    const paging = {skip: 0, limit: 100};
+    const projection = { Name: 1, Path: 1, GroupId: 1 };
+
+    const result = await httpService.queryConfiguration<Group>(
+      EntityType.Group,
+      filter,
+      paging,
+      projection
+    );
+
+    return result
+      .sort((a, b) => a.Path.length - b.Path.length)
+      .splice(0, 4) as Group[];
+  }
+
+  async function queryTenants(searchString: string): Promise<TenantView[]> {
+    const indexedTenants = searchData.indexedTenants;
+
+    return indexedTenants
+      .filter(tenantView => tenantView.Name.toLowerCase().includes(searchString))
+      .slice(0, 4);
   }
 
   async function _requestTenantsRecursive(id: string): Promise<TenantView[]> {
-
     const totalSubtenants = [];
     const tenants = await httpService.getNextTenants(id);
 
@@ -110,32 +152,55 @@ import { TenantView } from '../models/tenant-view';
       totalSubtenants.push(...nextTenants);
     }
 
-    
-
-
     return totalSubtenants;
   }
 
-  async function initSearch()
-  {
-    const appConfig = await from(httpService.getAppConfig());
-    
-    
+  async function initSearch() {
+    const appConfig = await firstValueFrom(httpService.getAppConfig());
+    console.log(appConfig);
+    searchData = await getSearchData();
+    console.log(searchData);
+  }
+  
+  async function getSearchData(): Promise<SearchData> {
+    let searchData: SearchData = await chrome.storage.local.get(window.location.host) as SearchData;
+
+    if (!searchData) {
+      const indexedTenants = await indexTenants();
+
+      // remove unused properties to reduce storage amount
+      indexedTenants.map(tenantView => {
+        delete tenantView.Description;
+        delete tenantView.Public;
+        delete tenantView.ApplicationSettings;
+      });
+      
+      const searchHistory = {};
+
+      const storageEntry: {[p: string]: SearchData} = {};
+      searchData = {indexedTenants: indexedTenants, searchHistory: searchHistory};
+      storageEntry[window.location.host] = searchData;
+      await chrome.storage.local.set(storageEntry);
+    }
+
+    return searchData
   }
 
+  async function indexTenants(): Promise<TenantView[]> {
+    const totalTenants = [];
 
-  httpService.getAppConfig().subscribe(() => {
+    const topTenants = await httpService.getTopTenants();
+    totalTenants.push(...topTenants);
 
-    indexTenants();
+    for (const tenant of topTenants) {
+      const subTenants = await _requestTenantsRecursive(tenant.Id);
+      totalTenants.push(...subTenants);
+    }
 
-    chrome.storage.local.get(['test'], (e) => {
-      console.log(e);
-    });
-    // chrome.storage.local.set({test: 1}, () => {
-    //   console.log('Set value');
-    // });
-  });
+    return totalTenants;
+  }
 
+  initSearch();
 </script>
 
 <Dialog class="search-dialog" bind:open={searchOpen}>
@@ -148,31 +213,36 @@ import { TenantView } from '../models/tenant-view';
       variant="outlined"
       type="text"
       label="Search"
+      bind:input={inputComponent}
     />
 
     <div style="margin-top: 8px;">
-      <List class="demo-list">
-        <div
-          style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px"
-        >
+      <List bind:this={listComponent} class="demo-list" bind>
+        {#if matchedTenants?.length > 0}
+        <div style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px">
           Tenants
         </div>
-        <Item><Text>Thing 1</Text></Item>
+        {#each matchedTenants as tenant}
+          <Item>
+            <Graphic class="material-icons">home</Graphic>
+            <Text>{tenant.Name}</Text>
+          </Item>
+        {/each}
 
         <Separator />
-        <div
-          style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px"
-        >
+        {/if}
+        {#if matchedGroups?.length > 0}
+        <div style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px">
           Groups
         </div>
-        {#each groupResults as group}
-        <Item on:SMUI:action={() => openGroupConfiguration(group)}>
-          <Graphic class="material-icons">folder</Graphic>
-          <Text>{group.Name.Value}</Text>
-        </Item>
+        {#each matchedGroups as group}
+          <Item on:SMUI:action={() => openGroupConfiguration(group)}>
+            <Graphic class="material-icons">folder</Graphic>
+            <Text>{group.Name.Value}</Text>
+          </Item>
         {/each}
         <Separator />
-        <Item><Text>Thing 4</Text></Item>
+        {/if}
       </List>
     </div>
   </Content>
