@@ -7,8 +7,10 @@ const prod = mode === 'production';
 
 module.exports = {
 	entry: {
-		'bundle': ['./content.ts'],
-		'inject': './inject.ts'
+		'popup': ['./src/popup/popup.ts'],
+    'content': ['./src/content.ts'],
+    'inject': ['./src/inject.ts'],
+    'background': ['./src/background.ts']
 	},
 	resolve: {
 		alias: {
@@ -19,7 +21,7 @@ module.exports = {
 	},
 	
 	output: {
-		path: path.join(__dirname, '/build'),
+		path: path.join(__dirname, '/dist/build'),
 		filename: '[name].js',
 		chunkFilename: '[name].[id].js'
 	},
@@ -32,7 +34,7 @@ module.exports = {
 			},
 			{
 				test: /\.svelte$/,
-				exclude: '/inject.ts',
+				exclude: ['/src/inject.ts', '/src/background.ts'],
 				use: {
 					loader: 'svelte-loader',
 					options: {

@@ -1,5 +1,5 @@
 
-@import url('node_modules/svelte-material-ui/bare.css');
+@import url('./../node_modules/svelte-material-ui/bare.css');
 
 body {
   --mdc-theme-primary: var(--primary);
