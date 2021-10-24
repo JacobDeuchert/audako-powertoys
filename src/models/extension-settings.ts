@@ -1,29 +1,40 @@
 export class ExtensionSettings {
   // urls on which the content script gets injected
-  public registeredURLs: string[];
-  public featureSettings: {
-    appSwitch: FeatureSettings,
-    search: FeatureSettings,
-    signalLiveValues: FeatureSettings
-  };
-
+  public registeredSystems: SystemSettings[];
   constructor() {
-    this.registeredURLs = [];
-    this.featureSettings = {
-      appSwitch: {
-        enabled: true
-      },
-      search: {
-        enabled: true
-      },
-      signalLiveValues: {
-        enabled: true
-      }
-    };
+    this.registeredSystems = [];
   }
 }
 
 export class FeatureSettings {
-  public enabled: boolean;
+  enabled: boolean;
 
+  appSwitchSettings: {
+    enabled: boolean;
+  };
+
+  searchSettings: {
+    enabled: boolean;
+  };
+
+  signalLiveValuesSettings: {
+    enabled: boolean;
+  };
+}
+
+// used short property names to reduce storage amount in sync storage
+export interface SystemSettings {
+  url: string;
+  // notifications
+  nt: boolean;
+  // features
+  ft: boolean;
+  // alias
+  al: string;
+  // rich healtchecks
+  rh: boolean;
+}
+
+export interface NotificationSettings {
+  enabled: boolean;
 }

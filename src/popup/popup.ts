@@ -1,4 +1,5 @@
 import './popup.css';
+import 'reflect-metadata';
 // @ts-ignore
 import Popup from './Popup.svelte';
 

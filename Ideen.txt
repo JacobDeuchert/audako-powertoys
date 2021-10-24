@@ -9,3 +9,4 @@
 - Bessere Homepage (he)
 - Statusbar als Footer (wie vscode, vlt HealthChecks?, Quicklinks?)
 - Kopieren einzelner entities (in andere systeme etc. )
+- 

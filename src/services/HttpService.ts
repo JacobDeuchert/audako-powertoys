@@ -11,12 +11,16 @@ export class HttpService {
 
     private _appConfig: BehaviorSubject<AppConfig>;
 
+    private _url: string;
+
     private _typeUrlMapping: { [key in keyof typeof EntityType]: string} = {
         Group: '/base/Group',
         Signal: '/daq/Signal'
     };
 
-    constructor() {
+    constructor(url?: string) {
+        this._url = url ?? window.location.origin;
+
         this._appConfig = new BehaviorSubject<AppConfig>(null);
         this._requestAppConfig();
     }
@@ -27,16 +31,22 @@ export class HttpService {
 
     private async _requestAppConfig(): Promise<void> {
         
-        const response = await axios.get<AppConfig>(window.location.origin + '/assets/conf/application.config')
-        this._appConfig.next(response.data);
-        return;
+        try {
+            const response = await axios.get<AppConfig>(this._url + '/assets/conf/application.config')
+            if (response.status === 200) {
+                this._appConfig.next(response.data);
+            } else {
+                this._appConfig.error(response.status);
+            }
+        } catch (err) {
+            this._appConfig.error(err);
+        }
     }
 
     public async queryConfiguration<T extends ConfigurationEntity>(entityType: EntityType, query: {[p: string]: any}, 
                                                              paging?: {skip: number; limit: number}, projection?: {[p in keyof T]?: number}): Promise<Array<Partial<T>>> {
 
         const appConfig = this._appConfig.value;
-        console.log(this._typeUrlMapping, entityType);
         const url = `${appConfig.Services.BaseUri}${appConfig.Services.Structure}${this._typeUrlMapping[entityType]}/query`;
         
         const queryBody = {
