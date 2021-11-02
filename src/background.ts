@@ -7,69 +7,52 @@ import { StorageUtils } from './utils/storage-utils';
 
 let registeredSystems: SystemSettings[];
 let notificationSettings: NotificationSettings;
+let healthCheckService: HealthCheckService;
 
 async function onNavigationComplete(navResult: chrome.webNavigation.WebNavigationFramedCallbackDetails): Promise<void> {
     const activeTab = (await chrome.tabs.query({active: true, currentWindow: true}))[0];
 
-    if (registeredSystems.some(x => navResult.url.includes(x.url))) {
+    console.log(registeredSystems);
+
+    const systemSettings = registeredSystems.find((x) => activeTab.url?.includes(x.url));
+     
+    if (systemSettings && systemSettings.ft) {
         await injectContentPage(activeTab.id);
     }
 }
 
-async function onMessageReceived(message: ExtensionMessage): Promise<void> {
-    console.log('Received message', message);
-    switch (message.type) {
-        case MessageType.RegisterUrl:
-            onUrlRegistered();
-            break;
+async function onStorageChanged(changes: {[p: string]: {newValue: any, oldValue: any}}): Promise<void> {
+    if (changes.registeredSystems) {
+        onRegisteredSystemsChanged(changes.registeredSystems.newValue);
     }
 }
 
-async function onUrlRegistered() {
-    const activeTab = (await chrome.tabs.query({active: true, currentWindow: true}))[0];
-    console.log('Content page added', activeTab);
+async function onRegisteredSystemsChanged(newSystems: SystemSettings[]): Promise<void> {
 
-    const url = new URL(activeTab.url);
+    const addedSystems = newSystems.filter(system => !registeredSystems.some(x => x.url === system.url))
+    // inject content page if newly added system is the current active tab
+    if (addedSystems.length === 1) {
+        const addedSystem = addedSystems[0];
+        const tabs = await chrome.tabs.query({});
+        console.log(tabs);
 
-    if (!registeredSystems.some(x => x.url === url.origin)) {
-        const newSystemEntry: SystemSettings = {
-            nt: true,
-            ft: true,
-            url: url.origin,
-            al: null,
-            rh: false
-        } 
-
-        injectContentPage(activeTab.id);
-        monitorSystemHealth(newSystemEntry);
-        registeredSystems.push(newSystemEntry);
-        console.log(registeredSystems);
-        await StorageUtils.setRegisterdSystemSettings(registeredSystems);
+        tabs.forEach(tab => {
+            if (tab.url && tab.url.includes(addedSystem.url)) {
+                injectContentPage(tab.id);
+            }
+        })
     }
+
+    healthCheckService.observeSystemsHealth(newSystems);
+    registeredSystems = newSystems;
 }
 
 async function injectContentPage(tabId: number): Promise<void> {    
+    console.log('InjectContentPage', tabId);
     await chrome.scripting.executeScript({target: {tabId: tabId, allFrames: true}, files: ['build/content.js']});
     await chrome.scripting.insertCSS({target: {tabId: tabId, allFrames: true}, files: ['build/content.css']});
 }
 
-async function monitorSystemHealth(system: SystemSettings): Promise<void> {
-
-    const healthCheckService = new HealthCheckService();
-    healthCheckService.observeWebsiteHealth(system.url).subscribe((healthy: boolean) => {
-        console.log('Healthy', healthy);
-        if (healthy) {
-
-        } else {
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: './assets/favicon.ico',
-                title: 'audako system error',
-                message: `Failed to reach Website for System: ${system.al ?? system.url}!`
-            })
-        }
-    });
-}
 
 async function initServiceWorker(): Promise<void> {
     console.log('Init Service Worker');
@@ -80,13 +63,11 @@ async function initServiceWorker(): Promise<void> {
     console.log('RegisteredSystems', registeredSystems);
 
     chrome.webNavigation.onCompleted.addListener(onNavigationComplete.bind(this));
-    chrome.runtime.onMessage.addListener(onMessageReceived.bind(this));
+    
+    chrome.storage.onChanged.addListener(onStorageChanged.bind(this));
 
-    registeredSystems.forEach(system => {
-        if (system) {
-            monitorSystemHealth(system);
-        }
-    });
+    healthCheckService = new HealthCheckService();
+    healthCheckService.observeSystemsHealth(registeredSystems);
 }
 
 initServiceWorker();

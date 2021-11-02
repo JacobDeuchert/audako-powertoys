@@ -1,24 +1,26 @@
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { FeatureSettings, NotificationSettings, SystemSettings } from '../models/extension-settings';
 import { SystemStatus } from '../models/system-status';
 
+export type SystemStats = {[p: string]: SystemStatus};
 export class StorageUtils {
 
   public static async getRegisterdSystemSettings(): Promise<SystemSettings[]> {
-    const storageEntry = await chrome.storage.sync.get('registerdSystems') as {registerdSystems: SystemSettings[]};
+    const storageEntry = await chrome.storage.sync.get('registeredSystems') as {registeredSystems: SystemSettings[]};
     console.log(storageEntry);
-    if (storageEntry && Array.isArray(storageEntry.registerdSystems)) {
-      return storageEntry.registerdSystems
+    if (storageEntry && Array.isArray(storageEntry.registeredSystems)) {
+      return storageEntry.registeredSystems
     }
     await this.setRegisterdSystemSettings([]);
     return [];
   }
 
   public static async setRegisterdSystemSettings(registeredSystems: SystemSettings[]): Promise<void> {
-    await chrome.storage.sync.set({registerdSystems: registeredSystems});
+    await chrome.storage.sync.set({registeredSystems: registeredSystems});
   }
 
   public static async getSystemStats(): Promise<{[p: string]: SystemStatus}> {
-    const storageEntry = await chrome.storage.sync.get('registerdSystems') as {systemStats: {[url: string]: SystemStatus}};
+    const storageEntry = await chrome.storage.sync.get('registeredSystems') as {systemStats: {[url: string]: SystemStatus}};
     console.log(storageEntry);
     if (storageEntry) {
       return storageEntry.systemStats;
@@ -27,8 +29,19 @@ export class StorageUtils {
     return {}
   }
 
-  public static async setSystemStats(systemStats: {[url: string]: SystemStatus}): Promise<void> {
+  public static async setSystemStats(systemStats: SystemStats): Promise<void> {
     await chrome.storage.sync.set({systemStats: systemStats});
+  }
+
+  public static listenForStatusChanges(): Observable<{[p: string]: SystemStatus}> {
+    const systemStatsChanged = new Subject<{[p: string]: SystemStatus}>();
+    
+    chrome.storage.onChanged.addListener((changes: {systemStats?: {newValue: SystemStats, oldValue: SystemStats}})=> {
+      if (changes.systemStats) {
+        systemStatsChanged.next(changes.systemStats.newValue);
+      }
+    });
+    return systemStatsChanged.asObservable();
   }
 
   public static async getFeatureSettings(): Promise<FeatureSettings> {

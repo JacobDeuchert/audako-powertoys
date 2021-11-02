@@ -9,8 +9,8 @@ const prod = mode === 'production';
 module.exports = {
 	entry: {
 		'popup': ['./src/popup/popup.ts'],
-    'content': ['./src/content.ts'],
-    'inject': ['./src/inject.ts'],
+    'content': ['./src/content/content.ts'],
+    'inject': ['./src/content/inject.ts'],
     'background': ['./src/background.ts']
 	},
 	resolve: {
@@ -35,7 +35,7 @@ module.exports = {
 			},
 			{
 				test: /\.svelte$/,
-				exclude: ['/src/inject.ts', '/src/background.ts'],
+				exclude: ['/src/content/inject.ts', '/src/background.ts'],
 				use: {
 					loader: 'svelte-loader',
 					options: {

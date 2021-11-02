@@ -1,5 +1,5 @@
 
-@import url('./../node_modules/svelte-material-ui/bare.css');
+@import url('./../../node_modules/svelte-material-ui/bare.css');
 
 body {
   --mdc-theme-primary: var(--primary);
@@ -34,9 +34,9 @@ body {
   font-weight: 400;
   src: local('Material Icons'),
     local('MaterialIcons-Regular'),
-    url(./assets/MaterialIcons-Regular.woff2) format('woff2'),
-    url(./assets/MaterialIcons-Regular.woff) format('woff'),
-    url(./assets/MaterialIcons-Regular.ttf) format('truetype');
+    url(./../assets/MaterialIcons-Regular.woff2) format('woff2'),
+    url(./../assets/MaterialIcons-Regular.woff) format('woff'),
+    url(./../assets/MaterialIcons-Regular.ttf) format('truetype');
 }
 
 .material-icons {

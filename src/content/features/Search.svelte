@@ -1,18 +1,19 @@
 <script lang="ts">
   import Dialog, { Content, InitialFocus } from '@smui/dialog';
+  import IconButton from '@smui/icon-button';
   import Textfield from '@smui/textfield';
   import List, { Item, Separator, Text, Graphic } from '@smui/list';
-  import { SignalRService } from '../services/SignalRService';
-  import { HttpService } from '../services/HttpService';
+  import { SignalRService } from '../../services/SignalRService';
+  import { HttpService } from '../../services/HttpService';
   import { container } from 'tsyringe';
-  import { EntityType } from '../models/configuration-entity';
-  import { Group } from '../models/group';
+  import { ConfigurationEntity, EntityType } from '../../models/configuration-entity';
+  import { Group } from '../../models/group';
   import { debounceTime, filter, firstValueFrom, from, map, Subject } from 'rxjs';
-  import { UrlUtils } from '../utils/url-utils';
-  import { TenantView } from '../models/tenant-view';
-import { Signal } from '../models/signal';
-import App from '../App.svelte';
-import { SvelteComponent } from 'svelte';
+  import { UrlUtils } from '../../utils/url-utils';
+  import { TenantView } from '../../models/tenant-view';
+  import { Signal } from '../../models/signal';
+  import App from '../App.svelte';
+  import { SvelteComponent } from 'svelte';
 
   type SearchHistory  = {
 
@@ -58,7 +59,7 @@ import { SvelteComponent } from 'svelte';
       } else {
         
         matchedTenants = await queryTenants(searchString);
-        matchedGroups = await queryGroups(searchString);
+        matchedGroups = await queryConfigurationEntityByName<Group>(EntityType.Group, searchString);
       }
     });
 
@@ -103,6 +104,7 @@ import { SvelteComponent } from 'svelte';
   });
 
   function openGroupConfiguration(group: Group) {
+    console.log('OpenGroupConfig', group)
     const tenant = searchData?.indexedTenants?.find(x => x.Root === group.Path[0] || x.Root === group.Id);
 
     if (tenant) {
@@ -112,8 +114,8 @@ import { SvelteComponent } from 'svelte';
     }  
   }
 
-  async function queryGroups(searchString: string): Promise<Group[]> {
-
+  
+  async function queryConfigurationEntityByName<T extends ConfigurationEntity>(entityType: EntityType, searchString: string, limit?: number) : Promise<T[]> {
     const searchParts = searchString.split(' ');
     const fullMatchFilter = { 'Name.Value': { $regex: searchString, $options: 'i' } };
     const partMatchFilter =  {$and: searchParts.map(x => ({ 'Name.Value': { $regex: x, $options: 'i' } }))}
@@ -121,8 +123,8 @@ import { SvelteComponent } from 'svelte';
     const paging = {skip: 0, limit: 100};
     const projection = { Name: 1, Path: 1, GroupId: 1 };
 
-    const result = await httpService.queryConfiguration<Group>(
-      EntityType.Group,
+    const result = await httpService.queryConfiguration<T>(
+      entityType,
       filter,
       paging,
       projection
@@ -130,15 +132,13 @@ import { SvelteComponent } from 'svelte';
 
     return result
       .sort((a, b) => a.Path.length - b.Path.length)
-      .splice(0, 4) as Group[];
+      .splice(0, limit ?? 4) as T[];
   }
 
   async function queryTenants(searchString: string): Promise<TenantView[]> {
+    console.log(searchData);
     const indexedTenants = searchData.indexedTenants;
-
-    return indexedTenants
-      .filter(tenantView => tenantView.Name.toLowerCase().includes(searchString))
-      .slice(0, 4);
+    return indexedTenants?.filter(tenantView => tenantView.Name.toLowerCase().includes(searchString)).slice(0, 4);
   }
 
   async function _requestTenantsRecursive(id: string): Promise<TenantView[]> {
@@ -163,9 +163,11 @@ import { SvelteComponent } from 'svelte';
   }
   
   async function getSearchData(): Promise<SearchData> {
-    let searchData: SearchData = await chrome.storage.local.get(window.location.host) as SearchData;
+    let searchDataEntry = await chrome.storage.local.get(window.location.host) as {[p: string]: SearchData};
+    let searchData: SearchData = searchDataEntry[window.location.host];
+    console.log(searchData);
 
-    if (!searchData) {
+    if (!searchData || Object.keys(searchData).length === 0) {
       const indexedTenants = await indexTenants();
 
       // remove unused properties to reduce storage amount
@@ -179,7 +181,7 @@ import { SvelteComponent } from 'svelte';
 
       const storageEntry: {[p: string]: SearchData} = {};
       searchData = {indexedTenants: indexedTenants, searchHistory: searchHistory};
-      storageEntry[window.location.host] = searchData;
+      storageEntry[window.location.host] = searchData
       await chrome.storage.local.set(storageEntry);
     }
 
@@ -239,6 +241,14 @@ import { SvelteComponent } from 'svelte';
           <Item on:SMUI:action={() => openGroupConfiguration(group)}>
             <Graphic class="material-icons">folder</Graphic>
             <Text>{group.Name.Value}</Text>
+            <div class="group-actions">
+              <IconButton>
+                <i class="adk adk-dashboard"></i>
+              </IconButton>
+              <IconButton>
+                <i class="fa fa-tools"></i>
+              </IconButton>
+            </div>
           </Item>
         {/each}
         <Separator />
@@ -249,4 +259,9 @@ import { SvelteComponent } from 'svelte';
 </Dialog>
 
 <style>
+
+  .group-actions {
+    margin-left: auto;
+    display: flex;
+  }
 </style>

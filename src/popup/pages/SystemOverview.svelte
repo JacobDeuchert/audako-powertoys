@@ -2,87 +2,134 @@
   import { Input } from '@smui/textfield';
   import IconButton from '@smui/icon-button';
   import Button, { Label } from '@smui/button';
-  import { Icon }from '@smui/common';
-  import Ripple from '@smui/ripple';  
+  import { Icon } from '@smui/common';
+  import Ripple from '@smui/ripple';
   import SystemEntry from '../components/SystemEntry.svelte';
-import { ExtensionMessage, MessageType } from '../../models/extension-message';
-import { init } from 'svelte/internal';
-import { StorageUtils } from '../../utils/storage-utils';
-import { SystemSettings } from '../../models/extension-settings';
-import { HttpService } from '../../services/HttpService';
-import { SystemStatus } from '../../models/system-status';
+  import {
+    ExtensionMessage,
+    MessageType,
+  } from '../../models/extension-message';
 
-  let search = ""; 
+  import { StorageUtils } from '../../utils/storage-utils';
+  import { SystemSettings } from '../../models/extension-settings';
+  import { HttpService } from '../../services/HttpService';
+  import { SystemStatus } from '../../models/system-status';
 
-  let systemSettings: SystemSettings[] = []
-  let systemStatus: {[url: string]: SystemStatus};
+  let search = '';
+
+  let systemSettings: SystemSettings[] = [];
+  let systemStatus: { [url: string]: SystemStatus };
 
   let showUnknwonSystemHint: boolean = false;
 
   async function registerSystem(): Promise<void> {
     console.log('Add to known urls');
-    const message = new ExtensionMessage(MessageType.RegisterUrl);
-    await chrome.runtime.sendMessage(message, (newSystem => {
-      console.log(newSystem);
-      systemSettings.unshift(newSystem);
-    }));
-    showUnknwonSystemHint = false;
+    const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+    console.log(activeTab);
+
+    if (!activeTab) {
+      return;
+    }
+
+    try {
+      const url = new URL(activeTab.url);
+
+      // check if system is not already registered
+      if (systemSettings.some(x => x.url === url.origin)) {
+        console.log('System already registered');
+        return;
+      }
+
+      const newSystemEntry: SystemSettings = {
+        nt: true,
+        ft: true,
+        url: url.origin,
+        al: null,
+        rh: false
+      }
+
+      systemSettings = [...systemSettings, newSystemEntry];
+      showUnknwonSystemHint = false;
+      StorageUtils.setRegisterdSystemSettings(systemSettings);
+    } catch (e) {
+      console.log('Failed to register new system: ' + e);
+    }
   }
 
   async function checkForAudakoSystem(): Promise<void> {
-    const activeTab = (await chrome.tabs.query({active: true, currentWindow: true}))[0];
-    const url = new URL(activeTab.url);
+    try {
+      const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 
-    if (!systemSettings.some(x => x.url === url.origin)) {
-      const httpService = new HttpService(url.origin);
-      httpService.getAppConfig().subscribe({
-        next: () => showUnknwonSystemHint = true,
-        error: () => showUnknwonSystemHint = false
-      });
-    } 
+      const url = new URL(activeTab.url);
+
+      if (!systemSettings.some((x) => x.url === url.origin)) {
+        const httpService = new HttpService(url.origin);
+        httpService.getAppConfig().subscribe({
+          next: () => (showUnknwonSystemHint = true),
+          error: () => (showUnknwonSystemHint = false),
+        });
+      }
+    } catch (e) {}
+  }
+
+  async function onDeleteSystem(system: SystemSettings): Promise<void> {
+      const index = systemSettings.findIndex(x => x.url === system.url);
+      systemSettings.splice(index, 1);
+      systemSettings = [...systemSettings];
+      StorageUtils.setRegisterdSystemSettings(systemSettings);
+  }
+
+  async function openSystem(system: SystemSettings): Promise<void> {
+    chrome.tabs.create({
+      active: true,
+      url: system.url
+    })
   }
 
   async function init(): Promise<void> {
     systemSettings = await StorageUtils.getRegisterdSystemSettings();
     await checkForAudakoSystem();
+    StorageUtils.listenForStatusChanges().subscribe(x => {
+      console.log(x);
+    });
   }
 
   init();
-
-
 </script>
 
 <main>
-    <div class="overview-header">
-
-      <div class="search-input-container">
-        <Icon class="material-icons">search</Icon>
-        <Input class="search-input solo-input" placeholder="Search" />
-      </div>
-      <IconButton class="material-icons settings-btn" on:click={() => registerSystem()}>
-        settings
-      </IconButton>
+  <div class="overview-header">
+    <div class="search-input-container">
+      <Icon class="material-icons">search</Icon>
+      <Input class="search-input solo-input" placeholder="Search" />
     </div>
-  
-    {#if showUnknwonSystemHint}
+    <IconButton
+      class="material-icons settings-btn"
+      on:click={() => registerSystem()}
+    >
+      settings
+    </IconButton>
+  </div>
+
+  {#if showUnknwonSystemHint}
     <div class="unknown-system-container">
       <Icon class="material-icons">info</Icon>
-      <div style="margin-left: 8px; margin-right: auto">Extension is not enabled on this system</div>
-      <Button on:click="{() => registerSystem()}">
-        <Label style="font-weight: bold">
-           Enable
-        </Label>
+      <div style="margin-left: 8px; margin-right: auto">
+        Extension is not enabled on this system
+      </div>
+      <Button on:click={() => registerSystem()}>
+        <Label style="font-weight: bold">Enable</Label>
       </Button>
     </div>
-    {/if}
-    <div class="system-list">
-      {#each systemSettings as system}
-      <div class="system-entry">
-        <div class="ripple" use:Ripple={{surface: true, color: 'primary'}}></div>
-        <SystemEntry systemSettings={system}></SystemEntry>
+  {/if}
+  <div class="system-list">
+    {#each systemSettings as system}
+      <div class="system-entry" on:click="{() => openSystem(system)}">
+        <div class="ripple" use:Ripple={{ surface: true, color: 'primary' }} />
+        <SystemEntry systemSettings={system} on:delete={() => onDeleteSystem(system)} />
       </div>
-      {/each}
-    </div>
+    {/each}
+  </div>
 </main>
 
 <style>
@@ -116,7 +163,7 @@ import { SystemStatus } from '../../models/system-status';
   .search-input-container :global(.solo-input::placeholder) {
     color: var(--mdc-theme-on-surface);
     opacity: 0.6;
-  } 
+  }
 
   .overview-header :global(.settings-btn) {
     margin-left: 12px;
@@ -134,6 +181,8 @@ import { SystemStatus } from '../../models/system-status';
   .system-entry {
     cursor: pointer;
     position: relative;
+    display: block;
+    margin-top: 8px;
   }
 
   .ripple {

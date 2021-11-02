@@ -2,9 +2,9 @@
 import Tooltip, { Wrapper } from '@smui/tooltip';
 import { afterUpdate } from 'svelte';
 
-import { Signal, SignalAnalogSettings, SignalDigitalSettings, SignalType } from '../models/signal';
-import { SignalLiveValue } from '../services/SignalRService';
-import { ColorUtils } from '../utils/color-utils';
+import { Signal, SignalAnalogSettings, SignalDigitalSettings, SignalType } from '../../models/signal';
+import { SignalLiveValue } from '../../services/SignalRService';
+import { ColorUtils } from '../../utils/color-utils';
 
 
     export let signal: Signal;
@@ -79,4 +79,4 @@ import { ColorUtils } from '../utils/color-utils';
   border-radius: 50%;
   box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset var(--led-light-color) 0 -1px 9px, var(--led-light-color) 0 2px 12px;
 }
-</style>
+</style>  

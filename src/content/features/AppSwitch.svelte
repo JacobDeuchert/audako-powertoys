@@ -1,7 +1,7 @@
 <script lang="ts">
     import SegmentedButton, { Segment } from "@smui/segmented-button";
 	import { Label } from "@smui/common";
-	import { AudakoApp, UrlUtils } from './../utils/url-utils';
+	import { AudakoApp, UrlUtils } from './../../utils/url-utils';
 
 	let displayAppSwitch: boolean = false;
 	let openedApp: AudakoApp = null;
