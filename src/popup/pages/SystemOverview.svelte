@@ -18,7 +18,7 @@
   let search = '';
 
   let systemSettings: SystemSettings[] = [];
-  let systemStatus: { [url: string]: SystemStatus };
+  let systemStats: { [url: string]: SystemStatus } = {};
 
   let showUnknwonSystemHint: boolean = false;
 
@@ -90,7 +90,9 @@
     systemSettings = await StorageUtils.getRegisterdSystemSettings();
     await checkForAudakoSystem();
     StorageUtils.listenForStatusChanges().subscribe(x => {
-      console.log(x);
+      console.log('Status changed: ', x);
+      
+      systemStats = x;
     });
   }
 
@@ -126,7 +128,7 @@
     {#each systemSettings as system}
       <div class="system-entry" on:click="{() => openSystem(system)}">
         <div class="ripple" use:Ripple={{ surface: true, color: 'primary' }} />
-        <SystemEntry systemSettings={system} on:delete={() => onDeleteSystem(system)} />
+        <SystemEntry systemStatus={systemStats[system.url]} systemSettings={system} on:delete={() => onDeleteSystem(system)} />
       </div>
     {/each}
   </div>

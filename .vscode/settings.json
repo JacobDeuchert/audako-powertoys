@@ -18,5 +18,6 @@
         "**/node_modules": true
     },
     "git.ignoreLimitWarning": true,
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "python.pythonPath": "/bin/python3"
 }

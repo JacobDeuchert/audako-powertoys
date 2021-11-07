@@ -4,9 +4,12 @@
   import Menu, { MenuComponentDev } from '@smui/menu';
   import List, { Item, Separator, Text, Graphic } from '@smui/list';
 import { afterUpdate, beforeUpdate, createEventDispatcher } from 'svelte';
+import { SystemStatus } from '../../models/system-status';
 
 
   export let systemSettings: SystemSettings;
+
+  export let systemStatus: SystemStatus;
 
   let menu: MenuComponentDev;
   let menuAnchor: any;
@@ -24,10 +27,15 @@ import { afterUpdate, beforeUpdate, createEventDispatcher } from 'svelte';
 
 </script>
 
-<main class="system-entry">
+<main class="system-entry {systemStatus?.healthy ? 'healthy' : 'unhealthy'}">
   <img class="favicon" alt="favicon" src="{systemSettings.url}/assets/brands/default/favicon.ico"/>
    <span class="name" >{name}</span>
-   <Graphic class="material-icons">favorite</Graphic>
+   {#if systemStatus?.healthy }
+   <Graphic class="fa fa-sm fa-heart health-icon"></Graphic>
+   {:else}
+   <Graphic class="fa fa-sm fa-heart-broken health-icon"></Graphic>
+   {/if}
+   
    <div bind:this={menuAnchor} >
     <IconButton class="material-icons" on:click={(event) => {event.stopPropagation(); menu.setOpen(true)}}>
       more_vert
@@ -72,6 +80,24 @@ import { afterUpdate, beforeUpdate, createEventDispatcher } from 'svelte';
   background-color: rgba(44, 44, 44, 1);
   padding: 4px 12px;
   border-radius: 4px;
+}
+
+:global(.unhealthy.system-entry) {
+  background-color: rgba(139, 7, 7, 0.3);
+}
+
+:global(.health-icon) {
+  font-size: 20px;
+  height: 20px;
+  width: 20px;
+  margin-right: 0px;
+}
+:global(.healthy) :global(.health-icon) {
+  color: #2dc937;
+}
+
+:global(.unhealthy) :global(.health-icon) {
+  color: #cc3232;
 }
 
 .favicon {

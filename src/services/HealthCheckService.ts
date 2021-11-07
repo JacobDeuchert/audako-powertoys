@@ -17,6 +17,7 @@ export class HealthCheckService {
   }
 
   public async observeSystemsHealth(systems: SystemSettings[]): Promise<void> {
+    console.log("Observing systems", systems);
     this._systemStats = await StorageUtils.getSystemStats() ?? {};
 
     // unsubscribe from all healthchecks for deleted systems

@@ -1,4 +1,4 @@
-import { BehaviorSubject, Observable, Subject } from 'rxjs';
+import { BehaviorSubject, combineLatest, concat, from, Observable, Subject } from 'rxjs';
 import { FeatureSettings, NotificationSettings, SystemSettings } from '../models/extension-settings';
 import { SystemStatus } from '../models/system-status';
 
@@ -20,7 +20,7 @@ export class StorageUtils {
   }
 
   public static async getSystemStats(): Promise<{[p: string]: SystemStatus}> {
-    const storageEntry = await chrome.storage.sync.get('registeredSystems') as {systemStats: {[url: string]: SystemStatus}};
+    const storageEntry = await chrome.storage.sync.get('systemStats') as {systemStats: {[url: string]: SystemStatus}};
     console.log(storageEntry);
     if (storageEntry) {
       return storageEntry.systemStats;
@@ -41,7 +41,7 @@ export class StorageUtils {
         systemStatsChanged.next(changes.systemStats.newValue);
       }
     });
-    return systemStatsChanged.asObservable();
+    return concat(from(this.getSystemStats()), systemStatsChanged.asObservable());
   }
 
   public static async getFeatureSettings(): Promise<FeatureSettings> {
