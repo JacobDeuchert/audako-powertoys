@@ -1,9 +1,11 @@
 import { filter, map, Observable, timer } from 'rxjs';
+import { EntityType } from '../models/configuration-entity';
 
 export enum AudakoApp {
     Dashboard = 'Dashboard',
     Configuration = 'Configuration',
-    Commissioning = 'Commissioning'
+    Commissioning = 'Commissioning',
+    Administration = 'Administration',
 }
 
 export class UrlUtils {
@@ -12,6 +14,31 @@ export class UrlUtils {
         config: AudakoApp.Configuration,
         application: AudakoApp.Dashboard,
         commissioning: AudakoApp.Commissioning
+    }
+
+    public static openApp(app: AudakoApp, tenantId: string, groupId?: string, detailId?: string, detailType?: EntityType): void {
+        let url = null;
+        switch(app) {
+            case AudakoApp.Dashboard:
+                url = `/${tenantId}/application/${groupId}`;
+                if (detailId) {
+                    url += `/${detailId}`;
+                }
+                break;
+            case AudakoApp.Configuration:
+                url = `/${tenantId}/config/${groupId}`;
+                if (detailId && detailType) {
+                    url += `/${detailId}/${detailType}`;
+                }
+                break;
+            case AudakoApp.Commissioning:
+                url = `/${tenantId}/commissioning/${groupId}`;
+                break;
+            case AudakoApp.Administration:
+                url = `administration/${tenantId}`;
+            break;
+        } 
+        window.location.href = url;
     }
 
     public static getTenantIdFromUrl(url: string): string {

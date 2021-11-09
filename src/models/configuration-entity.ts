@@ -1,6 +1,7 @@
 export enum EntityType {
     Group = 'Group', 
-    Signal = 'Signal'
+    Signal = 'Signal',
+    Dashboard = 'Dashboard'
 }
 
 export class Field<T> {

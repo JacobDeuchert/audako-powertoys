@@ -9,11 +9,12 @@
   import { ConfigurationEntity, EntityType } from '../../models/configuration-entity';
   import { Group } from '../../models/group';
   import { debounceTime, filter, firstValueFrom, from, map, Subject } from 'rxjs';
-  import { UrlUtils } from '../../utils/url-utils';
+  import { AudakoApp, UrlUtils } from '../../utils/url-utils';
   import { TenantView } from '../../models/tenant-view';
   import { Signal } from '../../models/signal';
   import App from '../App.svelte';
   import { SvelteComponent } from 'svelte';
+import { Dashboard } from '../../models/dashboard';
 
   type SearchHistory  = {
 
@@ -103,17 +104,22 @@
     }
   });
 
-  function openGroupConfiguration(group: Group) {
-    console.log('OpenGroupConfig', group)
-    const tenant = searchData?.indexedTenants?.find(x => x.Root === group.Path[0] || x.Root === group.Id);
-
-    if (tenant) {
-      const newUrl = `/${tenant.Id}/config/${group.Id}`;
-      console.log(newUrl);
-      window.location.href = newUrl;
-    }  
+  function openAppByTenant(tenant: TenantView, app: AudakoApp) {
+    UrlUtils.openApp(app, tenant.Id);
   }
 
+  function openAppByGroup(group: Group, app: AudakoApp) {
+    const tenant = searchData?.indexedTenants?.find(x => x.Root === group.Path[0] || x.Root === group.Id); 
+    UrlUtils.openApp(app, tenant.Id, group.Id);
+  }
+
+  function openAppByDashboard(dashboard: Dashboard, app: AudakoApp) {
+
+    const groupId = dashboard.GroupId;
+    const tenant = searchData?.indexedTenants?.find(x => x.Root === dashboard.Path[0] || x.Root === dashboard.Id);
+
+    UrlUtils.openApp(app, tenant.Id, groupId, dashboard.Id);
+  }
   
   async function queryConfigurationEntityByName<T extends ConfigurationEntity>(entityType: EntityType, searchString: string, limit?: number) : Promise<T[]> {
     const searchParts = searchString.split(' ');
@@ -225,9 +231,21 @@
           Tenants
         </div>
         {#each matchedTenants as tenant}
-          <Item>
+          <Item class="list-item">
             <Graphic class="material-icons">home</Graphic>
             <Text>{tenant.Name}</Text>
+
+            <div class="action-buttons">
+              <IconButton>
+                <i class="adk adk-dashboard"></i>
+              </IconButton>
+              <IconButton>
+                <i class="fa fa-tools"></i>
+              </IconButton>
+              <IconButton>
+                <i class="adk adk-staff-assignment"></i>
+              </IconButton>
+            </div>
           </Item>
         {/each}
 
@@ -238,14 +256,14 @@
           Groups
         </div>
         {#each matchedGroups as group}
-          <Item on:SMUI:action={() => openGroupConfiguration(group)}>
+          <Item class="list-item" on:click={() => openAppByGroup(group, AudakoApp.Configuration)}>
             <Graphic class="material-icons">folder</Graphic>
             <Text>{group.Name.Value}</Text>
-            <div class="group-actions">
-              <IconButton>
+            <div class="action-buttons" on:click="{event => event.stopPropagation()}">
+              <IconButton  on:click={() => openAppByGroup(group, AudakoApp.Dashboard)}>
                 <i class="adk adk-dashboard"></i>
               </IconButton>
-              <IconButton>
+              <IconButton on:click={() => openAppByGroup(group, AudakoApp.Commissioning)}>
                 <i class="fa fa-tools"></i>
               </IconButton>
             </div>
@@ -260,8 +278,23 @@
 
 <style>
 
-  .group-actions {
+
+
+  .action-buttons{
+    visibility: hidden;
     margin-left: auto;
     display: flex;
+  }
+
+  .action-buttons:focus-within{
+    visibility: visible;
+  }
+
+  :global(.list-item:hover .action-buttons){
+    visibility: visible;
+  }
+
+  :global(.list-item:focus-within .action-buttons){
+    visibility: visible;
   }
 </style>

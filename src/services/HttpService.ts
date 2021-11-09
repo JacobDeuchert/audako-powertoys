@@ -15,7 +15,8 @@ export class HttpService {
 
     private _typeUrlMapping: { [key in keyof typeof EntityType]: string} = {
         Group: '/base/Group',
-        Signal: '/daq/Signal'
+        Signal: '/daq/Signal', 
+        Dashboard: '/base/Dashboard',
     };
 
     constructor(url?: string) {

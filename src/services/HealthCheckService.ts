@@ -3,6 +3,7 @@ import { AppConfig } from '../models/app.config';
 import { SystemSettings } from '../models/extension-settings';
 import { CombinedHealthCheckResponse, HealthCheckResponse } from '../models/health-check-response';
 import { SystemStatus } from '../models/system-status';
+import { NotificationUtils } from '../utils/notification-utils';
 import { StorageUtils } from '../utils/storage-utils';
 
 export class HealthCheckService {
@@ -50,25 +51,25 @@ export class HealthCheckService {
       };
     }
 
-    return timer(0, 5000).pipe(
-      tap(() => console.log('Request')),
-      switchMap(() => from(this._requestAppConfig(system.url))),
+    const websiteReachable$ = () => from(this._requestAppConfig(system.url)).pipe(
       map(() => true),
-      catchError((e) => { console.log(e); return of(false)})
+      catchError(() => of(false))      
+    );
+
+    return timer(0, 2000).pipe(
+      switchMap(() => websiteReachable$()),
     ).subscribe(healthy => {
       console.log('Healthy', healthy);
-        if (healthy) {
-          this._systemStats[system.url].healthy = true;
-        } else {
-          this._systemStats[system.url].healthy = false;
-            chrome.notifications.create({
-                type: 'basic',
-                iconUrl: './assets/favicon.ico',
-                title: 'audako system error',
-                message: `Failed to reach Website for System: ${system.al ?? system.url}!`
-            })
-        }
-        this._syncStatsToStorage()
+      const lastStatus = this._systemStats[system.url];
+
+      if (!healthy && lastStatus.healthy) {
+        NotificationUtils.showErrorNotification(`System: ${new URL(system.url)} not reachable`);
+      }
+
+      this._systemStats[system.url] = {
+        healthy: healthy
+      };
+      this._syncStatsToStorage()
     });
   }
 

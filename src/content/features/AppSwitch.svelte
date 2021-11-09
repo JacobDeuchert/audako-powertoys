@@ -6,7 +6,7 @@
 	let displayAppSwitch: boolean = false;
 	let openedApp: AudakoApp = null;
 
-	let apps: AudakoApp[] = Object.keys(AudakoApp) as AudakoApp[];
+	let apps: AudakoApp[] = Object.keys(AudakoApp).filter(x => x !== AudakoApp.Administration) as AudakoApp[];
 
 
 	let appTranslation: {[p: string]: string} = {

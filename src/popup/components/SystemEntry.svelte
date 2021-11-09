@@ -28,14 +28,12 @@ import { SystemStatus } from '../../models/system-status';
 </script>
 
 <main class="system-entry {systemStatus?.healthy ? 'healthy' : 'unhealthy'}">
-  <img class="favicon" alt="favicon" src="{systemSettings.url}/assets/brands/default/favicon.ico"/>
-   <span class="name" >{name}</span>
-   {#if systemStatus?.healthy }
+  {#if systemStatus?.healthy }
    <Graphic class="fa fa-sm fa-heart health-icon"></Graphic>
    {:else}
    <Graphic class="fa fa-sm fa-heart-broken health-icon"></Graphic>
    {/if}
-   
+   <span class="name" >{name}</span>
    <div bind:this={menuAnchor} >
     <IconButton class="material-icons" on:click={(event) => {event.stopPropagation(); menu.setOpen(true)}}>
       more_vert
