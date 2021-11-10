@@ -20,19 +20,19 @@ export class UrlUtils {
         let url = null;
         switch(app) {
             case AudakoApp.Dashboard:
-                url = `/${tenantId}/application/${groupId}`;
+                url = `/${tenantId}/application/${groupId ?? ''}`;
                 if (detailId) {
-                    url += `/${detailId}`;
+                    url += `/${detailId ?? ''}`;
                 }
                 break;
             case AudakoApp.Configuration:
-                url = `/${tenantId}/config/${groupId}`;
+                url = `/${tenantId}/config/${groupId ?? ''}`;
                 if (detailId && detailType) {
                     url += `/${detailId}/${detailType}`;
                 }
                 break;
             case AudakoApp.Commissioning:
-                url = `/${tenantId}/commissioning/${groupId}`;
+                url = `/${tenantId}/commissioning/${groupId ?? ''}`;
                 break;
             case AudakoApp.Administration:
                 url = `administration/${tenantId}`;

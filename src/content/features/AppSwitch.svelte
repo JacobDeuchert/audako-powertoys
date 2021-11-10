@@ -10,9 +10,9 @@
 
 
 	let appTranslation: {[p: string]: string} = {
-		'Dashboard' : 'Dashboard',
-		'Configuration': 'Konfiguration',
-		'Commissioning': 'Inbetriebnahme'
+		'Dashboard' : 'Dashb.',
+		'Configuration': 'Konfig.',
+		'Commissioning': 'Inbetrieb.'
 	};
 
 

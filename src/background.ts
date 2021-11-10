@@ -1,3 +1,4 @@
+import { timer } from 'rxjs';
 import { ExtensionMessage, MessageType } from './models/extension-message';
 import { ExtensionSettings, NotificationSettings, SystemSettings } from './models/extension-settings';
 import { HealthCheckService } from './services/HealthCheckService';
@@ -47,10 +48,26 @@ async function onRegisteredSystemsChanged(newSystems: SystemSettings[]): Promise
     registeredSystems = newSystems;
 }
 
-async function injectContentPage(tabId: number): Promise<void> {    
+async function injectContentPage(tabId: number): Promise<void> {
+
     console.log('InjectContentPage', tabId);
-    await chrome.scripting.executeScript({target: {tabId: tabId, allFrames: true}, files: ['build/content.js']});
-    await chrome.scripting.insertCSS({target: {tabId: tabId, allFrames: true}, files: ['build/content.css']});
+
+    let errorCount = 0;
+
+    const timerSubscrition = timer(0, 250).subscribe(async() => {
+        try {
+            await chrome.scripting.executeScript({target: {tabId: tabId, allFrames: true}, files: ['build/content.js']});
+            await chrome.scripting.insertCSS({target: {tabId: tabId, allFrames: true}, files: ['build/content.css']});
+            timerSubscrition.unsubscribe();
+
+        } catch (error) {
+            errorCount++;
+            if (errorCount > 5) {
+                timerSubscrition.unsubscribe();
+                console.error('Failed to inject content page:', error);
+            }
+        }
+    });    
 }
 
 

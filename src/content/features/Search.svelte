@@ -3,18 +3,19 @@
   import IconButton from '@smui/icon-button';
   import Textfield from '@smui/textfield';
   import List, { Item, Separator, Text, Graphic } from '@smui/list';
-  import { SignalRService } from '../../services/SignalRService';
+  import { SignalLiveValue, SignalRService } from '../../services/SignalRService';
   import { HttpService } from '../../services/HttpService';
   import { container } from 'tsyringe';
   import { ConfigurationEntity, EntityType } from '../../models/configuration-entity';
   import { Group } from '../../models/group';
-  import { debounceTime, filter, firstValueFrom, from, map, Subject } from 'rxjs';
+  import { debounceTime, filter, firstValueFrom, from, map, Subject, switchMap } from 'rxjs';
   import { AudakoApp, UrlUtils } from '../../utils/url-utils';
   import { TenantView } from '../../models/tenant-view';
   import { Signal } from '../../models/signal';
   import App from '../App.svelte';
   import { SvelteComponent } from 'svelte';
 import { Dashboard } from '../../models/dashboard';
+import SignalValue from '../components/SignalValue.svelte';
 
   type SearchHistory  = {
 
@@ -26,6 +27,9 @@ import { Dashboard } from '../../models/dashboard';
 
   const httpService = container.resolve(HttpService);
   const signalRService = container.resolve(SignalRService);
+
+  let signalValues: {[p: string]: SignalLiveValue} = {};
+  let onLiveSignalChanged = new Subject<string[]>();
 
   let searchData: SearchData;
 
@@ -39,7 +43,7 @@ import { Dashboard } from '../../models/dashboard';
   let matchedTenants: TenantView[] = [];
   let matchedGroups: Group[] = [];
   let matchedSignals: Signal[] = [];
-  // let matchedDashboards: Dashboard
+  let matchedDashboards: Dashboard[] = [];
 
   let searchChanged$: Subject<string> = new Subject<string>();
 
@@ -60,7 +64,20 @@ import { Dashboard } from '../../models/dashboard';
       } else {
         
         matchedTenants = await queryTenants(searchString);
-        matchedGroups = await queryConfigurationEntityByName<Group>(EntityType.Group, searchString);
+
+        const groupProjection = {Name: 1, Path: 1, IsEntryPoint: 1};
+        matchedGroups = await queryConfigurationEntityByName<Group>(EntityType.Group, searchString, groupProjection);
+
+        const signalProjection = {Name: 1, Path: 1};
+        matchedSignals = await queryConfigurationEntityByName<Signal>(EntityType.Signal, searchString, signalProjection);
+
+        onLiveSignalChanged.next(matchedSignals.map(x => x.Id));
+
+        
+        console.log('Signals', matchedSignals);
+        
+        const dashboardProjection = {Name: 1, Path: 1};
+        matchedDashboards = await queryConfigurationEntityByName<Dashboard>(EntityType.Dashboard, searchString, dashboardProjection);
       }
     });
 
@@ -104,13 +121,18 @@ import { Dashboard } from '../../models/dashboard';
     }
   });
 
-  function openAppByTenant(tenant: TenantView, app: AudakoApp) {
+  function openAppByTenant(tenant: TenantView, app: AudakoApp): void {
     UrlUtils.openApp(app, tenant.Id);
   }
 
-  function openAppByGroup(group: Group, app: AudakoApp) {
+  function openAppByGroup(group: Group, app: AudakoApp): void {
     const tenant = searchData?.indexedTenants?.find(x => x.Root === group.Path[0] || x.Root === group.Id); 
     UrlUtils.openApp(app, tenant.Id, group.Id);
+  }
+
+  function openAppBySignal(signal: Signal, app: AudakoApp): void {
+    const tenant = searchData?.indexedTenants?.find(x => x.Root === signal.Path[0] || x.Root === signal.Id); 
+    UrlUtils.openApp(app, tenant.Id, signal.GroupId, signal.Id, EntityType.Signal);
   }
 
   function openAppByDashboard(dashboard: Dashboard, app: AudakoApp) {
@@ -121,13 +143,13 @@ import { Dashboard } from '../../models/dashboard';
     UrlUtils.openApp(app, tenant.Id, groupId, dashboard.Id);
   }
   
-  async function queryConfigurationEntityByName<T extends ConfigurationEntity>(entityType: EntityType, searchString: string, limit?: number) : Promise<T[]> {
+  async function queryConfigurationEntityByName<T extends ConfigurationEntity>(entityType: EntityType, searchString: string, projection: {[p in keyof T]?: number} ,limit?: number) : Promise<T[]> {
     const searchParts = searchString.split(' ');
     const fullMatchFilter = { 'Name.Value': { $regex: searchString, $options: 'i' } };
     const partMatchFilter =  {$and: searchParts.map(x => ({ 'Name.Value': { $regex: x, $options: 'i' } }))}
     const filter = {$or: [fullMatchFilter, partMatchFilter]};
     const paging = {skip: 0, limit: 100};
-    const projection = { Name: 1, Path: 1, GroupId: 1 };
+    
 
     const result = await httpService.queryConfiguration<T>(
       entityType,
@@ -166,6 +188,11 @@ import { Dashboard } from '../../models/dashboard';
     console.log(appConfig);
     searchData = await getSearchData();
     console.log(searchData);
+
+    onLiveSignalChanged.pipe(
+      switchMap(signalIds => signalRService.connect(`${appConfig.Services.BaseUri}${appConfig.Services.Live}/hub`))
+      switchMap()
+      ).subscribe()
   }
   
   async function getSearchData(): Promise<SearchData> {
@@ -235,14 +262,16 @@ import { Dashboard } from '../../models/dashboard';
             <Graphic class="material-icons">home</Graphic>
             <Text>{tenant.Name}</Text>
 
-            <div class="action-buttons">
-              <IconButton>
+            <div class="action-buttons" on:click="{event => event.stopPropagation()}">
+              {#if tenant.Root}
+              <IconButton on:click={() => openAppByTenant(tenant, AudakoApp.Dashboard)}>
                 <i class="adk adk-dashboard"></i>
               </IconButton>
-              <IconButton>
+              <IconButton on:click={() => openAppByTenant(tenant, AudakoApp.Commissioning)}>
                 <i class="fa fa-tools"></i>
               </IconButton>
-              <IconButton>
+              {/if}
+              <IconButton on:click={() => openAppByTenant(tenant, AudakoApp.Administration)}>
                 <i class="adk adk-staff-assignment"></i>
               </IconButton>
             </div>
@@ -260,12 +289,29 @@ import { Dashboard } from '../../models/dashboard';
             <Graphic class="material-icons">folder</Graphic>
             <Text>{group.Name.Value}</Text>
             <div class="action-buttons" on:click="{event => event.stopPropagation()}">
-              <IconButton  on:click={() => openAppByGroup(group, AudakoApp.Dashboard)}>
-                <i class="adk adk-dashboard"></i>
-              </IconButton>
+              {#if group.IsEntryPoint}
+                <IconButton  on:click={() => openAppByGroup(group, AudakoApp.Dashboard)}>
+                  <i class="adk adk-dashboard"></i>
+                </IconButton>
+              {/if}
               <IconButton on:click={() => openAppByGroup(group, AudakoApp.Commissioning)}>
                 <i class="fa fa-tools"></i>
               </IconButton>
+            </div>
+          </Item>
+        {/each}
+        <Separator />
+        {/if}
+        {#if matchedSignals?.length > 0}
+        <div style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px">
+          Signals
+        </div>
+        {#each matchedSignals as signal}
+          <Item class="list-item" on:click={() => openAppBySignal(signal, AudakoApp.Configuration)}>
+            <Graphic class="material-icons">code</Graphic>
+            <Text>{signal.Name.Value}</Text>
+            <div class="action-buttons" on:click="{event => event.stopPropagation()}">
+              <SignalValue signal="{signal}" signalValue="{null}"></SignalValue>
             </div>
           </Item>
         {/each}
@@ -284,6 +330,20 @@ import { Dashboard } from '../../models/dashboard';
     visibility: hidden;
     margin-left: auto;
     display: flex;
+  }
+
+  :global(.action-buttons .mdc-icon-button) {
+    height: 36px;
+    width: 36px;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-items: center;
+    padding: 9px;
+  }
+
+  :global(.list-item) {
+    height: 36px;
   }
 
   .action-buttons:focus-within{
