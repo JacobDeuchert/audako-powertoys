@@ -98,12 +98,6 @@ import { SystemStatus } from '../../models/system-status';
   color: #cc3232;
 }
 
-.favicon {
-  width: 24px;
-  height: 24px;
-
-}
-
 .name {
   margin-left: 12px;
   margin-right: auto;

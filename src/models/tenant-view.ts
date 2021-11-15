@@ -1,4 +1,4 @@
-export class TenantView {
+export class TenantView{
   public Id: string;
   public Name: string;
   public Description: string;

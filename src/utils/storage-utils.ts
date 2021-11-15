@@ -1,5 +1,6 @@
 import { BehaviorSubject, combineLatest, concat, from, Observable, Subject } from 'rxjs';
 import { FeatureSettings, NotificationSettings, SystemSettings } from '../models/extension-settings';
+import { SearchRequisites } from '../models/search-requisites';
 import { SystemStatus } from '../models/system-status';
 
 export type SystemStats = {[p: string]: SystemStatus};
@@ -66,6 +67,15 @@ export class StorageUtils {
 
   public static async setNotificationSettings(notifiactionSettings: NotificationSettings): Promise<void> {
     await chrome.storage.sync.set({notifiactionSettings: notifiactionSettings});
+  }
+
+  public static async getSearchRequisites(systemUrl: string): Promise<SearchRequisites> {
+    const storageEntry = await chrome.storage.sync.get(`${systemUrl}_searchrequisites`) as {[p: string]: SearchRequisites};
+    return storageEntry[systemUrl];
+  }
+
+  public static async setSearchRequisites(systemUrl: string, searchRequisites: SearchRequisites): Promise<void> {
+    await chrome.storage.sync.set({[`${systemUrl}_searchrequisites`]: searchRequisites});
   }
 
 }

@@ -65,7 +65,7 @@ import { ColorUtils } from '../../utils/color-utils';
     {:else if signal.Type?.Value == signalType.DigitalInput || signal.Type?.Value == signalType.DigitalInOut}
       <div class="led" style="{cssLedStyle}"></div>
     {:else}
-      <p>Universal</p>
+    <p>{ stringValue }</p>
     {/if}
   {/if}
 </main>

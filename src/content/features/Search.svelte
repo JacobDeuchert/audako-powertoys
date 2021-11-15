@@ -16,34 +16,25 @@
   import { SvelteComponent } from 'svelte';
 import { Dashboard } from '../../models/dashboard';
 import SignalValue from '../components/SignalValue.svelte';
+import { SearchService } from '../../services/SearchService';
+import { CategorizedSearchResults } from '../../models/search-results';
+import { catchPromise } from '../../utils/promise-utils';
 
-  type SearchHistory  = {
-
-  }
-  type SearchData = {
-    indexedTenants: Partial<TenantView[]>,
-    searchHistory: SearchHistory
-  } 
 
   const httpService = container.resolve(HttpService);
   const signalRService = container.resolve(SignalRService);
 
-  let signalValues: {[p: string]: SignalLiveValue} = {};
-  let onLiveSignalChanged = new Subject<string[]>();
+  const searchService = new SearchService(httpService, signalRService);
 
-  let searchData: SearchData;
+  let searchResults: CategorizedSearchResults = [];
 
   let searchOpen: boolean = false;
   let searchString: string = '';
-  let selectedItem: number = 0;
+  
 
   let inputComponent: SvelteComponent;
   let listComponent: SvelteComponent;
 
-  let matchedTenants: TenantView[] = [];
-  let matchedGroups: Group[] = [];
-  let matchedSignals: Signal[] = [];
-  let matchedDashboards: Dashboard[] = [];
 
   let searchChanged$: Subject<string> = new Subject<string>();
 
@@ -57,28 +48,15 @@ import SignalValue from '../components/SignalValue.svelte';
       map(search => search.trim().toLowerCase()),
     ).subscribe(async (searchString) => {
       console.log('Searching', searchString);
-      
-      const prefixedSearch = searchString.startsWith(':') || searchString.startsWith('<');
-
-      if (prefixedSearch) {
-      } else {
-        
-        matchedTenants = await queryTenants(searchString);
-
-        const groupProjection = {Name: 1, Path: 1, IsEntryPoint: 1};
-        matchedGroups = await queryConfigurationEntityByName<Group>(EntityType.Group, searchString, groupProjection);
-
-        const signalProjection = {Name: 1, Path: 1};
-        matchedSignals = await queryConfigurationEntityByName<Signal>(EntityType.Signal, searchString, signalProjection);
-
-        onLiveSignalChanged.next(matchedSignals.map(x => x.Id));
-
-        
-        console.log('Signals', matchedSignals);
-        
-        const dashboardProjection = {Name: 1, Path: 1};
-        matchedDashboards = await queryConfigurationEntityByName<Dashboard>(EntityType.Dashboard, searchString, dashboardProjection);
+      const [result, error ]= await catchPromise(searchService.search(searchString));
+      if (error) {
+        console.error(error);
+        return;
       }
+      console.log('Search results', JSON.parse(JSON.stringify(result)));
+      searchResults = result;
+      
+      console.log('Search results', searchResults);
     });
 
 
@@ -121,120 +99,24 @@ import SignalValue from '../components/SignalValue.svelte';
     }
   });
 
-  function openAppByTenant(tenant: TenantView, app: AudakoApp): void {
-    UrlUtils.openApp(app, tenant.Id);
-  }
-
-  function openAppByGroup(group: Group, app: AudakoApp): void {
-    const tenant = searchData?.indexedTenants?.find(x => x.Root === group.Path[0] || x.Root === group.Id); 
-    UrlUtils.openApp(app, tenant.Id, group.Id);
-  }
-
-  function openAppBySignal(signal: Signal, app: AudakoApp): void {
-    const tenant = searchData?.indexedTenants?.find(x => x.Root === signal.Path[0] || x.Root === signal.Id); 
-    UrlUtils.openApp(app, tenant.Id, signal.GroupId, signal.Id, EntityType.Signal);
-  }
-
-  function openAppByDashboard(dashboard: Dashboard, app: AudakoApp) {
-
-    const groupId = dashboard.GroupId;
-    const tenant = searchData?.indexedTenants?.find(x => x.Root === dashboard.Path[0] || x.Root === dashboard.Id);
-
-    UrlUtils.openApp(app, tenant.Id, groupId, dashboard.Id);
-  }
-  
-  async function queryConfigurationEntityByName<T extends ConfigurationEntity>(entityType: EntityType, searchString: string, projection: {[p in keyof T]?: number} ,limit?: number) : Promise<T[]> {
-    const searchParts = searchString.split(' ');
-    const fullMatchFilter = { 'Name.Value': { $regex: searchString, $options: 'i' } };
-    const partMatchFilter =  {$and: searchParts.map(x => ({ 'Name.Value': { $regex: x, $options: 'i' } }))}
-    const filter = {$or: [fullMatchFilter, partMatchFilter]};
-    const paging = {skip: 0, limit: 100};
-    
-
-    const result = await httpService.queryConfiguration<T>(
-      entityType,
-      filter,
-      paging,
-      projection
-    );
-
-    return result
-      .sort((a, b) => a.Path.length - b.Path.length)
-      .splice(0, limit ?? 4) as T[];
-  }
-
-  async function queryTenants(searchString: string): Promise<TenantView[]> {
-    console.log(searchData);
-    const indexedTenants = searchData.indexedTenants;
-    return indexedTenants?.filter(tenantView => tenantView.Name.toLowerCase().includes(searchString)).slice(0, 4);
-  }
-
-  async function _requestTenantsRecursive(id: string): Promise<TenantView[]> {
-    const totalSubtenants = [];
-    const tenants = await httpService.getNextTenants(id);
-
-    totalSubtenants.push(...tenants);
-
-    for (const tenant of tenants) {
-      const nextTenants = await _requestTenantsRecursive(tenant.Id);
-      totalSubtenants.push(...nextTenants);
-    }
-
-    return totalSubtenants;
-  }
-
   async function initSearch() {
     const appConfig = await firstValueFrom(httpService.getAppConfig());
-    console.log(appConfig);
-    searchData = await getSearchData();
-    console.log(searchData);
 
-    onLiveSignalChanged.pipe(
-      switchMap(signalIds => signalRService.connect(`${appConfig.Services.BaseUri}${appConfig.Services.Live}/hub`))
-      switchMap()
-      ).subscribe()
+    // onLiveSignalChanged.pipe(
+    //   switchMap(signalIds => signalRService.connect(`${appConfig.Services.BaseUri}${appConfig.Services.Live}/hub`).pipe(map(() => signalIds))),
+    //   switchMap(signalIds => {
+    //     return signalRService.subscribeToSignalValues(signalIds);
+    //   })
+    //   ).subscribe((liveValues: SignalLiveValue[]) => {
+        
+    //     liveValues.forEach(signalValue => {
+    //       const signalId = signalValue.identifier.replace('S:', '');
+    //       signalValues[signalId] = signalValue;
+    //     });
+    //     console.log(signalValues);
+    //   });
   }
   
-  async function getSearchData(): Promise<SearchData> {
-    let searchDataEntry = await chrome.storage.local.get(window.location.host) as {[p: string]: SearchData};
-    let searchData: SearchData = searchDataEntry[window.location.host];
-    console.log(searchData);
-
-    if (!searchData || Object.keys(searchData).length === 0) {
-      const indexedTenants = await indexTenants();
-
-      // remove unused properties to reduce storage amount
-      indexedTenants.map(tenantView => {
-        delete tenantView.Description;
-        delete tenantView.Public;
-        delete tenantView.ApplicationSettings;
-      });
-      
-      const searchHistory = {};
-
-      const storageEntry: {[p: string]: SearchData} = {};
-      searchData = {indexedTenants: indexedTenants, searchHistory: searchHistory};
-      storageEntry[window.location.host] = searchData
-      await chrome.storage.local.set(storageEntry);
-    }
-
-    return searchData
-  }
-
-  async function indexTenants(): Promise<TenantView[]> {
-    const totalTenants = [];
-
-    const topTenants = await httpService.getTopTenants();
-    totalTenants.push(...topTenants);
-
-    for (const tenant of topTenants) {
-      const subTenants = await _requestTenantsRecursive(tenant.Id);
-      totalTenants.push(...subTenants);
-    }
-
-    return totalTenants;
-  }
-
   initSearch();
 </script>
 
@@ -253,70 +135,36 @@ import SignalValue from '../components/SignalValue.svelte';
 
     <div style="margin-top: 8px;">
       <List bind:this={listComponent} class="demo-list" bind>
-        {#if matchedTenants?.length > 0}
+        {#each searchResults as categoryResults, categoryIndex}
         <div style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px">
-          Tenants
+          {categoryResults.category}
         </div>
-        {#each matchedTenants as tenant}
-          <Item class="list-item">
-            <Graphic class="material-icons">home</Graphic>
-            <Text>{tenant.Name}</Text>
+          {#each categoryResults.results as result, resultIndex}
+          <Item on:click="{() => result.defaultAction()}">
+            <Graphic class="{result.icon}">            
+            </Graphic>
+            <Text>
+              {result.title}
+            </Text>
 
-            <div class="action-buttons" on:click="{event => event.stopPropagation()}">
-              {#if tenant.Root}
-              <IconButton on:click={() => openAppByTenant(tenant, AudakoApp.Dashboard)}>
-                <i class="adk adk-dashboard"></i>
-              </IconButton>
-              <IconButton on:click={() => openAppByTenant(tenant, AudakoApp.Commissioning)}>
-                <i class="fa fa-tools"></i>
-              </IconButton>
-              {/if}
-              <IconButton on:click={() => openAppByTenant(tenant, AudakoApp.Administration)}>
-                <i class="adk adk-staff-assignment"></i>
-              </IconButton>
-            </div>
+            {#if result.extraActions?.length > 0}
+              <div class="action-buttons">
+                {#each result.extraActions as action}
+                  <IconButton
+                    class="{action.icon}"
+                    on:click="{() => action.onClick()}">
+                  <i class="{action.icon}"></i>
+                  </IconButton>
+                {/each}
+              </div>
+            {/if}
           </Item>
+          {/each}
+          {#if categoryIndex < categoryResults.results.length - 1}
+          <Separator/>
+          {/if}
+          
         {/each}
-
-        <Separator />
-        {/if}
-        {#if matchedGroups?.length > 0}
-        <div style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px">
-          Groups
-        </div>
-        {#each matchedGroups as group}
-          <Item class="list-item" on:click={() => openAppByGroup(group, AudakoApp.Configuration)}>
-            <Graphic class="material-icons">folder</Graphic>
-            <Text>{group.Name.Value}</Text>
-            <div class="action-buttons" on:click="{event => event.stopPropagation()}">
-              {#if group.IsEntryPoint}
-                <IconButton  on:click={() => openAppByGroup(group, AudakoApp.Dashboard)}>
-                  <i class="adk adk-dashboard"></i>
-                </IconButton>
-              {/if}
-              <IconButton on:click={() => openAppByGroup(group, AudakoApp.Commissioning)}>
-                <i class="fa fa-tools"></i>
-              </IconButton>
-            </div>
-          </Item>
-        {/each}
-        <Separator />
-        {/if}
-        {#if matchedSignals?.length > 0}
-        <div style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px">
-          Signals
-        </div>
-        {#each matchedSignals as signal}
-          <Item class="list-item" on:click={() => openAppBySignal(signal, AudakoApp.Configuration)}>
-            <Graphic class="material-icons">code</Graphic>
-            <Text>{signal.Name.Value}</Text>
-            <div class="action-buttons" on:click="{event => event.stopPropagation()}">
-              <SignalValue signal="{signal}" signalValue="{null}"></SignalValue>
-            </div>
-          </Item>
-        {/each}
-        <Separator />
-        {/if}
       </List>
     </div>
   </Content>
@@ -326,10 +174,14 @@ import SignalValue from '../components/SignalValue.svelte';
 
 
 
-  .action-buttons{
+  .action-buttons {
     visibility: hidden;
     margin-left: auto;
     display: flex;
+  }
+
+  .signal-value {
+    margin-left: auto;
   }
 
   :global(.action-buttons .mdc-icon-button) {
