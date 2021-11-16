@@ -56,13 +56,19 @@ export class HealthCheckService {
       catchError(() => of(false))      
     );
 
-    return timer(0, 2000).pipe(
+    return timer(0, 10000).pipe(
       switchMap(() => websiteReachable$()),
     ).subscribe(healthy => {
-      console.log('Healthy', healthy);
+      
       const lastStatus = this._systemStats[system.url];
 
-      if (!healthy && lastStatus.healthy) {
+      // do nothing if status has not changed
+      if (healthy === lastStatus.healthy) {
+        return;
+      }
+
+      if (!healthy) {
+        console.log('Healthy', healthy);
         NotificationUtils.showErrorNotification(`System: ${new URL(system.url)} not reachable`);
       }
 
@@ -88,8 +94,7 @@ export class HealthCheckService {
   private async _requestAppConfig(baseUrl: string): Promise<AppConfig> {
         
     const response = await fetch(`${baseUrl}/assets/conf/application.config`, {cache: 'no-cache'});
-    console.log(response);
-
+  
     if (response.status != 200) {
       throw new Error(response.status.toString());
     }

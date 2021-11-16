@@ -47,7 +47,7 @@ export class SearchService {
       const tenantRestriction: string = tenantRestrictedSearch ? UrlUtils.getTenantIdFromUrl(window.location.pathname) : undefined;
       const categoryRestriction: string = searchMatches[2];
 
-      const searchTerm = searchMatches[3];
+      const searchTerm = searchMatches[3]?.trim();
 
       const searchResults = 0;
       const categorizedSearchResults: CategorizedSearchResults = [];
@@ -120,32 +120,53 @@ export class SearchService {
         return [...group.Path, group.Name].join('/');
       };
 
-      const groupProjection = {Name: 1, Path: 1, Type: 1};
-      const matchedGroups = await this._queryConfigurationEntity<Group>(EntityType.Group, queryString, groupProjection, 4);
+      const groupProjection = {Name: 1, Path: 1, Type: 1, IsEntryPoint: 1};
+      const matchedGroups = await this._queryConfigurationEntity<Group>(EntityType.Group, queryString, tenantRestriction, groupProjection, 4);
 
       return matchedGroups.map(group => {
         const tenant = this._getTenantForEntity(group);
 
+        const actionButtons: ResultAction[]= [{
+            onClick: () => UrlUtils.openApp(AudakoApp.Commissioning, tenant.Id, group.Id),
+            icon: 'fa fa-tools' 
+          }
+        ];
+
+        if (group.IsEntryPoint) {
+          actionButtons.unshift({
+              onClick: () => UrlUtils.openApp(AudakoApp.Dashboard, tenant.Id, group.Id),
+              icon: 'adk adk-dashboard'
+            });
+        }
 
         return {
           title: group.Name.Value,
           defaultAction: () => defaultAction(tenant, group),
-          extraActions: [],
+          extraActions: actionButtons,
           icon: 'fas fa-folder',
           tooltip: () => tooltip(group)
         };
       });
-
     }
 
-    private async _queryConfigurationEntity<T extends ConfigurationEntity>(entityType: EntityType, searchString: string, projection: {[p in keyof T]?: number} ,limit?: number) : Promise<T[]> {
+    private async _queryConfigurationEntity<T extends ConfigurationEntity>(entityType: EntityType, searchString: string, tenantRestriction: string, 
+                                                                           projection: {[p in keyof T]?: number} ,limit?: number) : Promise<T[]> {
       const searchParts = searchString.split(' ');
       const fullMatchFilter = { 'Name.Value': { $regex: searchString, $options: 'i' } };
       const partMatchFilter =  {$and: searchParts.map(x => ({ 'Name.Value': { $regex: x, $options: 'i' } }))}
-      const filter = {$or: [fullMatchFilter, partMatchFilter]};
+      let filter = {$or: [fullMatchFilter, partMatchFilter]} as {[p: string]: any};
+
+      if (tenantRestriction && tenantRestriction.length > 0) {
+        const tenant = this._indexedTenants.find(t => t.Id === tenantRestriction);
+
+        if (tenant) {
+          const pathFilter = {$or: [{Path: tenant.Root}, {Id: tenant.Root}]};
+          filter = {$and: [filter, pathFilter]};
+        }
+      }
+
       const paging = {skip: 0, limit: 100};
       
-  
       const result = await this.httpService.queryConfiguration<T>(
         entityType,
         filter,
@@ -233,7 +254,12 @@ export class SearchService {
     }
 
     private _getTenantForEntity(entity: ConfigurationEntity): IndexedTenant {
-      const rootGroup = entity.Path[0];
-      return this._indexedTenants?.find(t => t.Root === rootGroup);
+      let rootPathEntry = entity.Path[0];
+
+      if (!rootPathEntry || rootPathEntry.length === 0) {
+        rootPathEntry = entity.Id;
+      }
+
+      return this._indexedTenants?.find(t => t.Root === rootPathEntry);
     }
 }

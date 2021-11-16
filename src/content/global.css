@@ -71,3 +71,7 @@ body {
 .search-dialog .mdc-dialog__surface {
   width: 40vw;
 }
+.mdc-notched-outline__notch {
+  border-left: unset !important;
+  border-right: unset !important;
+}

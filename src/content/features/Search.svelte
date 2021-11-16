@@ -98,26 +98,7 @@ import { catchPromise } from '../../utils/promise-utils';
       }
     }
   });
-
-  async function initSearch() {
-    const appConfig = await firstValueFrom(httpService.getAppConfig());
-
-    // onLiveSignalChanged.pipe(
-    //   switchMap(signalIds => signalRService.connect(`${appConfig.Services.BaseUri}${appConfig.Services.Live}/hub`).pipe(map(() => signalIds))),
-    //   switchMap(signalIds => {
-    //     return signalRService.subscribeToSignalValues(signalIds);
-    //   })
-    //   ).subscribe((liveValues: SignalLiveValue[]) => {
-        
-    //     liveValues.forEach(signalValue => {
-    //       const signalId = signalValue.identifier.replace('S:', '');
-    //       signalValues[signalId] = signalValue;
-    //     });
-    //     console.log(signalValues);
-    //   });
-  }
   
-  initSearch();
 </script>
 
 <Dialog class="search-dialog" bind:open={searchOpen}>
@@ -140,7 +121,7 @@ import { catchPromise } from '../../utils/promise-utils';
           {categoryResults.category}
         </div>
           {#each categoryResults.results as result, resultIndex}
-          <Item on:click="{() => result.defaultAction()}">
+          <Item class="list-item" on:SMUI:action="{() => result.defaultAction()}">
             <Graphic class="{result.icon}">            
             </Graphic>
             <Text>
@@ -148,7 +129,7 @@ import { catchPromise } from '../../utils/promise-utils';
             </Text>
 
             {#if result.extraActions?.length > 0}
-              <div class="action-buttons">
+              <div class="action-buttons" on:click="{event => event.stopPropagation()}">
                 {#each result.extraActions as action}
                   <IconButton
                     class="{action.icon}"
