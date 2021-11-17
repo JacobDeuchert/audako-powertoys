@@ -5,14 +5,14 @@ import 'reflect-metadata';
 import App from './App.svelte';
 import { container, registry } from 'tsyringe';
 import { HttpService } from '../services/HttpService';
+import { StorageUtils } from '../utils/storage-utils';
 
 chrome.runtime.sendMessage({type: 'init'});
 
 container.register<HttpService>(HttpService, {useValue: new HttpService()});
 
-var s = document.createElement('script');
-s.src = chrome.runtime.getURL('build/inject.js');
-(document.head || document.documentElement).appendChild(s);
+injectScript('build/openInSameTab.js');
+injectScript('build/signalChangedListener.js');
 
 
 const app = new App({
@@ -23,3 +23,9 @@ const app = new App({
 });
 
 export default app;
+
+function injectScript(scriptUrl) {
+  const script = document.createElement('script');
+  script.src = chrome.runtime.getURL(scriptUrl);
+  (document.head || document.documentElement).appendChild(script);
+}

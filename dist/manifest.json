@@ -9,7 +9,7 @@
   "permissions": ["storage", "webRequest", "scripting", "webNavigation", "notifications"],
   "host_permissions": ["<all_urls>"],
   "web_accessible_resources": [{
-    "resources": ["build/inject.js", "build/content.js", "build/content.css"],
+    "resources": ["build/openInSameTab.js","build/signalChangedListener.js", "build/content.js", "build/content.css"],
     "matches": ["<all_urls>"]
   }],
   "action": {

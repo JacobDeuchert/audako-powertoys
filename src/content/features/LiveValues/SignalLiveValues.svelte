@@ -11,15 +11,15 @@
 tap,
   } from 'rxjs';
 import { SvelteComponent } from 'svelte/internal';
-  import SignalValue from './../components/SignalValue.svelte';
+  import SignalValue from './../../components/SignalValue.svelte';
   import { container } from 'tsyringe';
-  import { AppConfig } from '../../models/app.config';
-  import { EntityType } from '../../models/configuration-entity';
-  import { Signal } from '../../models/signal';
-  import { HttpService } from '../../services/HttpService';
-  import { SignalLiveValue, SignalRService } from '../../services/SignalRService';
-  import { DomUtils } from '../../utils/dom-utils';
-  import { UrlUtils } from '../../utils/url-utils';
+import { HttpService } from '../../../services/HttpService';
+import { SignalLiveValue, SignalRService } from '../../../services/SignalRService';
+import { UrlUtils } from '../../../utils/url-utils';
+import { DomUtils } from '../../../utils/dom-utils';
+import { Signal } from '../../../models/signal';
+import { EntityType } from '../../../models/configuration-entity';
+import { AppConfig } from '../../../models/app.config';
 
   const httpService = container.resolve(HttpService);
   const signalRService = container.resolve(SignalRService);

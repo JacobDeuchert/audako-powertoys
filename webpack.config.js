@@ -10,7 +10,8 @@ module.exports = {
 	entry: {
 		'popup': ['./src/popup/popup.ts'],
     'content': ['./src/content/content.ts'],
-    'inject': ['./src/content/inject.ts'],
+		'openInSameTab': ['./src/content/features/OpenInSameTab/OpenInSameTab.ts'],
+		'signalChangedListener': ['./src/content/features/SendConfigNotification/SignalChangedListener.ts'],
     'background': ['./src/background.ts']
 	},
 	resolve: {

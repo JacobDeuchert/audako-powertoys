@@ -3,22 +3,14 @@
   import IconButton from '@smui/icon-button';
   import Textfield from '@smui/textfield';
   import List, { Item, Separator, Text, Graphic } from '@smui/list';
-  import { SignalLiveValue, SignalRService } from '../../services/SignalRService';
-  import { HttpService } from '../../services/HttpService';
-  import { container } from 'tsyringe';
-  import { ConfigurationEntity, EntityType } from '../../models/configuration-entity';
-  import { Group } from '../../models/group';
-  import { debounceTime, filter, firstValueFrom, from, map, Subject, switchMap } from 'rxjs';
-  import { AudakoApp, UrlUtils } from '../../utils/url-utils';
-  import { TenantView } from '../../models/tenant-view';
-  import { Signal } from '../../models/signal';
-  import App from '../App.svelte';
-  import { SvelteComponent } from 'svelte';
-import { Dashboard } from '../../models/dashboard';
-import SignalValue from '../components/SignalValue.svelte';
-import { SearchService } from '../../services/SearchService';
-import { CategorizedSearchResults } from '../../models/search-results';
-import { catchPromise } from '../../utils/promise-utils';
+import { container } from 'tsyringe';
+import { HttpService } from '../../../services/HttpService';
+import { SignalRService } from '../../../services/SignalRService';
+import { SearchService } from '../../../services/SearchService';
+import { CategorizedSearchResults } from '../../../models/search-results';
+import { SvelteComponent } from 'svelte';
+import { debounceTime, filter, map, Subject } from 'rxjs';
+import { catchPromise } from '../../../utils/promise-utils';
 
 
   const httpService = container.resolve(HttpService);
@@ -132,7 +124,6 @@ import { catchPromise } from '../../utils/promise-utils';
               <div class="action-buttons" on:click="{event => event.stopPropagation()}">
                 {#each result.extraActions as action}
                   <IconButton
-                    class="{action.icon}"
                     on:click="{() => action.onClick()}">
                   <i class="{action.icon}"></i>
                   </IconButton>
