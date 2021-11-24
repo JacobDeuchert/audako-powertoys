@@ -1,4 +1,4 @@
-import { TenantView } from './tenant-view';
+import { TenantView } from '../../../models/tenant-view';
 
 export class IndexedTenant {
   Id: string;

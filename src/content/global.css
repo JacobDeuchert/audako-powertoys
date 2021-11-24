@@ -62,15 +62,6 @@ body {
   font-feature-settings: 'liga';
 }
 
-.search-dialog .mdc-dialog__container {
-    width: 40vw;
-    align-items: flex-start;
-    margin-top: 30px;
-}
-
-.search-dialog .mdc-dialog__surface {
-  width: 40vw;
-}
 .mdc-notched-outline__notch {
   border-left: unset !important;
   border-right: unset !important;

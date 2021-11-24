@@ -12,7 +12,7 @@
 
   import { StorageUtils } from '../../utils/storage-utils';
   import { SystemSettings } from '../../models/extension-settings';
-  import { HttpService } from '../../services/HttpService';
+  import { HttpService } from '../../services/http.service';
   import { SystemStatus } from '../../models/system-status';
 
   let search = '';

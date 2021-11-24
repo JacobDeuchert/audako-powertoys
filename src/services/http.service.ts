@@ -47,9 +47,8 @@ export class HttpService {
     public async queryConfiguration<T extends ConfigurationEntity>(entityType: EntityType, query: {[p: string]: any}, 
                                                              paging?: {skip: number; limit: number}, projection?: {[p in keyof T]?: number}): Promise<Array<Partial<T>>> {
 
-        const appConfig = this._appConfig.value;
-        const url = `${appConfig.Services.BaseUri}${appConfig.Services.Structure}${this._typeUrlMapping[entityType]}/query`;
-        
+        const url = `${this._createBaseUrlByType(entityType)}/query`;
+
         const queryBody = {
             $filter: JSON.stringify(query),
             $paging: paging ? JSON.stringify(paging) : null,
@@ -60,6 +59,12 @@ export class HttpService {
 
         const response = await axios.post<{$filter: string, $paging: string, $projection: string}, AxiosResponse<Partial<T>[]>>(url, queryBody, {headers: headers});
         return response.data;
+    }
+
+    public async resolvePathName(idPath: string[]): Promise<string> {
+
+        const pathGroups = await this.queryConfiguration(EntityType.Group, {Id: {$in: idPath}});
+        return idPath.map(id => pathGroups.find(x => x.Id === id)?.Name ?? id).join('/');
     }
 
     public async getTopTenants(): Promise<TenantView[]> {
@@ -79,6 +84,11 @@ export class HttpService {
         const headers = this._getAuthorizationHeader();
         const response = await axios.get<TenantView[]>(url, {headers: headers});
         return response.data; 
+    }
+
+    private _createBaseUrlByType(entityType: EntityType): string {
+        const appConfig = this._appConfig.value;
+        return `${appConfig.Services.BaseUri}${appConfig.Services.Structure}${this._typeUrlMapping[entityType]}`;
     }
 
     private _getAuthorizationHeader(): {[p: string]: string} {

@@ -13,13 +13,13 @@ tap,
 import { SvelteComponent } from 'svelte/internal';
   import SignalValue from './../../components/SignalValue.svelte';
   import { container } from 'tsyringe';
-import { HttpService } from '../../../services/HttpService';
-import { SignalLiveValue, SignalRService } from '../../../services/SignalRService';
-import { UrlUtils } from '../../../utils/url-utils';
-import { DomUtils } from '../../../utils/dom-utils';
 import { Signal } from '../../../models/signal';
 import { EntityType } from '../../../models/configuration-entity';
 import { AppConfig } from '../../../models/app.config';
+import { HttpService } from '../../../services/http.service';
+import { SignalLiveValue, SignalRService } from '../../../services/signalR.service';
+import { UrlUtils } from '../../../utils/url-utils';
+import { DomUtils } from '../../../utils/dom-utils';
 
   const httpService = container.resolve(HttpService);
   const signalRService = container.resolve(SignalRService);

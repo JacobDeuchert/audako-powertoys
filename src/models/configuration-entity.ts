@@ -4,6 +4,12 @@ export enum EntityType {
     Dashboard = 'Dashboard'
 }
 
+export const EntityIcons: {[p in EntityType]: string} = {
+    [EntityType.Group]: 'fas fa-folder',
+    [EntityType.Dashboard]: 'adk adk-dashboard',
+    [EntityType.Signal]: 'fas fa-code'
+}
+
 export class Field<T> {
     public Value: T;
     public OOAttributes: string[];
@@ -30,3 +36,5 @@ export class ConfigurationEntity {
     public IsInstanceOf?: boolean;
     public IsTemplate: boolean;
 }
+
+

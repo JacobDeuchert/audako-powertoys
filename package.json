@@ -21,6 +21,7 @@
   "dependencies": {
     "@aspnet/signalr": "^1.0.27",
     "axios": "^0.22.0",
+    "dayjs": "^1.10.7",
     "node-sass": "^6.0.1",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.3.0",

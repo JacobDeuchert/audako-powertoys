@@ -1,15 +1,18 @@
 
 import { SvelteComponent, SvelteComponentTyped } from 'svelte';
-import { ConfigurationEntity, EntityType } from './configuration-entity';
-import { TenantView } from './tenant-view';
+import { EntityType } from '../../../models/configuration-entity';
 
-export type CategorizedSearchResults = {category: SearchCategory, results: SearchResult[]}[];
+
+export type CategorySearchResult = {category: SearchCategory, results: SearchResult[]};
+export type CategorizedSearchResults = CategorySearchResult[];
+
 
 export type SearchCategory = EntityType | 'Tenant';
 
 export interface SearchResult {
    icon: string;
    title: string;
+   infoText?: string;
    // tooptip is a function to build the tooltip only when it is actually showed to prevent unnecesary http requests
    tooltip: () => Promise<string>;
 
@@ -22,6 +25,8 @@ export interface SearchResult {
    // optional component displaying at the end of the result entry
    infoComponent?: {component: new (options) => SvelteComponent, props: Record<string, any>};
 }
+
+
 
 export interface ResultAction {
     icon: string;

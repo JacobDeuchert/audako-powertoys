@@ -1,7 +1,7 @@
 import { timer } from 'rxjs';
 import { ExtensionMessage, MessageType } from './models/extension-message';
 import { ExtensionSettings, NotificationSettings, SystemSettings } from './models/extension-settings';
-import { HealthCheckService } from './services/HealthCheckService';
+import { HealthCheckService } from './services/heal-check.service';
 import { StorageUtils } from './utils/storage-utils';
 
 
@@ -13,12 +13,10 @@ let healthCheckService: HealthCheckService;
 async function onNavigationComplete(navResult: chrome.webNavigation.WebNavigationFramedCallbackDetails): Promise<void> {
     const activeTab = (await chrome.tabs.query({active: true, currentWindow: true}))[0];
 
-    console.log(registeredSystems);
-
     const systemSettings = registeredSystems.find((x) => activeTab.url?.includes(x.url));
      
     if (systemSettings && systemSettings.ft) {
-        await injectContentPage(activeTab.id);
+        await injectContentPage(activeTab.id)
     }
 }
 
@@ -50,11 +48,12 @@ async function onRegisteredSystemsChanged(newSystems: SystemSettings[]): Promise
 
 async function injectContentPage(tabId: number): Promise<void> {
 
-    console.log('InjectContentPage', tabId);
+    
 
     let errorCount = 0;
 
     const timerSubscrition = timer(0, 250).subscribe(async() => {
+        console.log('InjectContentPage', tabId);
         try {
             await chrome.scripting.executeScript({target: {tabId: tabId, allFrames: true}, files: ['build/content.js']});
             await chrome.scripting.insertCSS({target: {tabId: tabId, allFrames: true}, files: ['build/content.css']});

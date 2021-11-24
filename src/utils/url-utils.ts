@@ -1,13 +1,6 @@
 import { filter, map, Observable, timer } from 'rxjs';
+import { AudakoApp } from '../models/audako-apps';
 import { EntityType } from '../models/configuration-entity';
-
-export enum AudakoApp {
-    Dashboard = 'Dashboard',
-    Configuration = 'Configuration',
-    Commissioning = 'Commissioning',
-    Administration = 'Administration',
-}
-
 export class UrlUtils {
 
     private static appRouteMapping: { [key: string]: AudakoApp } = {

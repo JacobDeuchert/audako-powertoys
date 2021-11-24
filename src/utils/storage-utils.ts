@@ -1,6 +1,6 @@
 import { BehaviorSubject, combineLatest, concat, from, Observable, Subject } from 'rxjs';
+import { SearchRequisites } from '../content/features/Search/search-requisites';
 import { FeatureSettings, NotificationSettings, SystemSettings } from '../models/extension-settings';
-import { SearchRequisites } from '../models/search-requisites';
 import { SystemStatus } from '../models/system-status';
 
 export type SystemStats = {[p: string]: SystemStatus};

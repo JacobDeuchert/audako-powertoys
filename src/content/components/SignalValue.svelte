@@ -3,7 +3,9 @@ import Tooltip, { Wrapper } from '@smui/tooltip';
 import { afterUpdate } from 'svelte';
 
 import { Signal, SignalAnalogSettings, SignalDigitalSettings, SignalType } from '../../models/signal';
-import { SignalLiveValue } from '../../services/SignalRService';
+import dayjs from 'dayjs';
+import 'dayjs/locale/de';
+import { SignalLiveValue } from '../../services/signalR.service';
 import { ColorUtils } from '../../utils/color-utils';
 
 
@@ -13,6 +15,8 @@ import { ColorUtils } from '../../utils/color-utils';
     let stringValue: string;
     let boolValue: boolean;
     let noValue: boolean;
+
+    let tooltip: string;
 
     let ledStyle = {
       'led-color': null,
@@ -25,6 +29,8 @@ import { ColorUtils } from '../../utils/color-utils';
       
       if (signal && signalValue) {
 
+        tooltip = dayjs(signalValue.timestamp).locale('de').format('DD.MM.YYYY HH:mm:ss');
+
         switch (signal.Type.Value) {
           case SignalType.AnalogInput:
           case SignalType.AnalogInOut:
@@ -36,10 +42,11 @@ import { ColorUtils } from '../../utils/color-utils';
           case SignalType.DigitalInOut:
             const digitalSettings = signal.Settings as SignalDigitalSettings;
             boolValue = signalValue?.value >= 1;
+            tooltip = boolValue ? digitalSettings.DigitalTrueCaption.Value : digitalSettings.DigitalFalseCaption.Value + ' - ' + tooltip;
 
             const color = boolValue ? digitalSettings.DigitalTrueColor.Value : digitalSettings.DigitalFalseColor.Value;
             ledStyle['led-color'] = color;
-            ledStyle['led-light-color'] = ColorUtils.LightenDarkenColor(color, 20);
+            ledStyle['led-light-color'] = ColorUtils.LightenDarkenColor(color, 5);
             break;
           case SignalType.UniservalInput:
           case SignalType.UnversalInOut:
@@ -57,16 +64,23 @@ import { ColorUtils } from '../../utils/color-utils';
 
 <main>
   {#if signal}
-    {#if signal.Type?.Value == signalType.AnalogInput || signal.Type?.Value == signalType.AnalogInOut || signal.Type?.Value == signalType.Counter}
-    <Wrapper>
+  <Wrapper>
+    <div>
+      {#if signal.Type?.Value == signalType.AnalogInput || signal.Type?.Value == signalType.AnalogInOut || signal.Type?.Value == signalType.Counter}
+        {#if stringValue}
+          <p>{ stringValue }</p>
+        {:else}
+          <i class="fas fa-exclamation-triangle"></i>
+        {/if}
+      {:else if signal.Type?.Value == signalType.DigitalInput || signal.Type?.Value == signalType.DigitalInOut}
+        <div class="led" style="{cssLedStyle}"></div>
+      {:else}
       <p>{ stringValue }</p>
-      <Tooltip>Ayo</Tooltip>
-    </Wrapper>
-    {:else if signal.Type?.Value == signalType.DigitalInput || signal.Type?.Value == signalType.DigitalInOut}
-      <div class="led" style="{cssLedStyle}"></div>
-    {:else}
-    <p>{ stringValue }</p>
-    {/if}
+      {/if}
+    </div>
+    
+    <Tooltip>{tooltip}</Tooltip>
+  </Wrapper>
   {/if}
 </main>
 
@@ -77,6 +91,6 @@ import { ColorUtils } from '../../utils/color-utils';
   height: 24px;
   background-color: var(--led-color);
   border-radius: 50%;
-  box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 7px 1px, inset var(--led-light-color) 0 -1px 9px, var(--led-light-color) 0 2px 12px;
+  box-shadow: rgb(0 0 0 / 0%) 0px -1px 7px 1px, rgb(0 0 0) 0px -1px 9px inset, var(--led-light-color) 0px 2px 12px;
 }
 </style>  
