@@ -19,8 +19,7 @@ export class GroupQuery extends SearchQuery {
   public async query(queryString: string, tenantRestriction?: string): Promise<SearchResult[]> {
 
     const indexedTenants = await this.tenantIndexer.getIndexedTenants();
-    console.log('indexedTenants', indexedTenants);
-
+    
     const defaultAction = (tenant: IndexedTenant, group: Group) =>
       UrlUtils.openApp(AudakoApp.Configuration, tenant.Id, group.Id);
 

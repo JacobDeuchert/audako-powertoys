@@ -41,6 +41,7 @@ export class StorageUtils {
       if (changes.systemStats) {
         systemStatsChanged.next(changes.systemStats.newValue);
       }
+      return true;
     });
     return concat(from(this.getSystemStats()), systemStatsChanged.asObservable());
   }

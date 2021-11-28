@@ -146,7 +146,7 @@ import { DomUtils } from '../../../utils/dom-utils';
           hubConnected$.pipe(filter((x: boolean) => !!x))
         ),
         switchMap((connected: boolean): Observable<SignalLiveValue[]> => 
-          signalRService.subscribeToSignalValues(lastSignalIds)
+          signalRService.subscribeToSignalIds(lastSignalIds)
         )).subscribe((values: SignalLiveValue[]) => {
             
           values.forEach((liveValue: SignalLiveValue) => {
@@ -186,9 +186,7 @@ import { DomUtils } from '../../../utils/dom-utils';
       .getAppConfig()
       .pipe(
         switchMap((appconfig: AppConfig) =>
-          signalRService.connect(
-            `${appconfig.Services.BaseUri}${appconfig.Services.Live}/hub`
-          )
+          signalRService.connectWithConfig(appconfig)
         )
       )
       .subscribe(() => {

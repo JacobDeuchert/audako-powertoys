@@ -10,7 +10,7 @@ let registeredSystems: SystemSettings[];
 let notificationSettings: NotificationSettings;
 let healthCheckService: HealthCheckService;
 
-async function onNavigationComplete(navResult: chrome.webNavigation.WebNavigationFramedCallbackDetails): Promise<void> {
+async function onNavigationComplete(navResult: chrome.webNavigation.WebNavigationFramedCallbackDetails): Promise<boolean> {
     const activeTab = (await chrome.tabs.query({active: true, currentWindow: true}))[0];
 
     const systemSettings = registeredSystems.find((x) => activeTab.url?.includes(x.url));
@@ -18,12 +18,15 @@ async function onNavigationComplete(navResult: chrome.webNavigation.WebNavigatio
     if (systemSettings && systemSettings.ft) {
         await injectContentPage(activeTab.id)
     }
+
+    return true;
 }
 
-async function onStorageChanged(changes: {[p: string]: {newValue: any, oldValue: any}}): Promise<void> {
+async function onStorageChanged(changes: {[p: string]: {newValue: any, oldValue: any}}): Promise<boolean> {
     if (changes.registeredSystems) {
         onRegisteredSystemsChanged(changes.registeredSystems.newValue);
     }
+    return true;
 }
 
 async function onRegisteredSystemsChanged(newSystems: SystemSettings[]): Promise<void> {
@@ -71,7 +74,7 @@ async function injectContentPage(tabId: number): Promise<void> {
 
 
 async function initServiceWorker(): Promise<void> {
-    console.log('Init Service Worker');
+    console.log('Init Service Worker: ' + new Date().toISOString());
 
     registeredSystems = await StorageUtils.getRegisterdSystemSettings();
     notificationSettings = await StorageUtils.getNotificationSettings();

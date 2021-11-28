@@ -15,8 +15,8 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "build/assets/favicon.ico",
-      "32": "build/assets/favicon.ico"
+      "16": "build/assets/favicon.png",
+      "32": "build/assets/favicon.png"
     }
   }
 }

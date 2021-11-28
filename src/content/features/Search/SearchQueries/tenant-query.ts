@@ -1,4 +1,4 @@
-import { AudakoApp } from '../../../../models/audako-apps';
+import { AppIcons, AudakoApp } from '../../../../models/audako-apps';
 import { TenantView } from '../../../../models/tenant-view';
 import { HttpService } from '../../../../services/http.service';
 import { UrlUtils } from '../../../../utils/url-utils';
@@ -36,9 +36,33 @@ export class TenantQuery extends SearchQuery {
       }
 
       return matchedTenants.map(tenant => {
+        
+        let extraActions = [
+          {
+            icon: AppIcons.Administration,
+            onClick: () => UrlUtils.openApp(AudakoApp.Administration, tenant.Id), 
+          }
+        ]
+
+        if (tenant.Root) {
+          extraActions = [
+          {
+            icon: AppIcons.Dashboard,
+            onClick: () => UrlUtils.openApp(AudakoApp.Dashboard, tenant.Id),
+          },
+          {
+            icon: AppIcons.Commissioning,
+            onClick: () => UrlUtils.openApp(AudakoApp.Commissioning, tenant.Id),
+          },
+          ...extraActions
+        ]
+        }
+
+        
+
         return {
           defaultAction: () => defaultAction(tenant),
-          extraActions: [],
+          extraActions: extraActions,
           icon: this.DEFAULT_ICON,
           tooltip: () => Promise.resolve(tooltip(tenant)),
           infoComponent: undefined,

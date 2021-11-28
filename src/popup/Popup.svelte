@@ -21,6 +21,7 @@
 
   async function onSettingsChanged(changes, namespace) {
     console.log('Settings Changed', changes, namespace);
+    return true;
   }
 
 

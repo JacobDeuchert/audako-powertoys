@@ -6,8 +6,8 @@ export enum SignalType {
     DigitalInput = 'DigitalInput',
     DigitalInOut = 'DigitalInOut',
     Counter = 'Counter',
-    UniservalInput = 'UniservalInput',
-    UnversalInOut = 'UnversalInOut'
+    UniversalInput = 'UniservalInput',
+    UniversalInOut = 'UniversalInOut'
 }
 
 export class Signal extends ConfigurationEntity {

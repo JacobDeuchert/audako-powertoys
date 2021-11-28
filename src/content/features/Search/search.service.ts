@@ -14,6 +14,7 @@ import { TenantIndexer } from './tenant-indexer';
 import { GroupQuery } from './SearchQueries/group-query';
 import { GenericEntityQuery } from './SearchQueries/generic-entity-query';
 import { AudakoApp } from '../../../models/audako-apps';
+import { SignalQuery } from './SearchQueries/signal-query';
 
 
 export class SearchService {
@@ -31,6 +32,8 @@ export class SearchService {
     private _searchInitialized$: BehaviorSubject<boolean>;
 
     private tenantIndexer: TenantIndexer;
+
+    private categorieQueries: {[cat in SearchCategory]: SearchQuery};
 
     constructor(private httpService: HttpService, private signalRService: SignalRService) {
 
@@ -64,14 +67,7 @@ export class SearchService {
           continue;
         }
 
-        const categoryResultFunctions: {[cat in SearchCategory]: () => SearchQuery} = {
-          ['Tenant']: () => new TenantQuery(this.tenantIndexer, this.httpService),
-          [EntityType.Group]: () => new GroupQuery(this.tenantIndexer, this.httpService),
-          [EntityType.Dashboard]: () => new GenericEntityQuery(this.tenantIndexer, this.httpService, EntityType.Dashboard, AudakoApp.Dashboard), 
-          [EntityType.Signal]: () => new GenericEntityQuery(this.tenantIndexer, this.httpService, EntityType.Signal, AudakoApp.Configuration)
-        };
-
-        const searchQuery = categoryResultFunctions[category]();
+        const searchQuery = this.categorieQueries[category];
 
         categoryResults = await searchQuery.query(searchTerm, tenantRestriction);
 
@@ -82,8 +78,7 @@ export class SearchService {
           });
         }
       }
-
-      console.log(JSON.parse(JSON.stringify(categorizedSearchResults)));
+      
       return categorizedSearchResults;
     }
 
@@ -110,6 +105,15 @@ export class SearchService {
       console.log('appConfig', appConfig);
 
       this.tenantIndexer = new TenantIndexer(this.httpService);
+
+      this.categorieQueries = {
+        ['Tenant']: new TenantQuery(this.tenantIndexer, this.httpService),
+        [EntityType.Group]: new GroupQuery(this.tenantIndexer, this.httpService),
+        [EntityType.Dashboard]: new GenericEntityQuery(this.tenantIndexer, this.httpService, EntityType.Dashboard, AudakoApp.Dashboard),
+        [EntityType.Signal]: new SignalQuery(this.tenantIndexer, this.httpService),
+      };
+
+      
       this._searchInitialized$.next(true);
     }
 }

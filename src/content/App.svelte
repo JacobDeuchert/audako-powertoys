@@ -2,7 +2,7 @@
 	import AppSwitch from './features/AppSwitch/AppSwitch.svelte';
 	import SignalLiveValues from './features/LiveValues/SignalLiveValues.svelte';
 	import Search from './features/Search/Search.svelte';
-import { StorageUtils } from '../utils/storage-utils';
+	import { StorageUtils } from '../utils/storage-utils';
 
 
 	async function initFeatures(): Promise<void> {

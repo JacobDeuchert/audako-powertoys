@@ -12,6 +12,8 @@
   import { SearchService } from './search.service';
   import { CategorizedSearchResults, CategorySearchResult, SearchCategory, SearchResult } from './search-results';
 import { DomUtils } from '../../../utils/dom-utils';
+import App from '../../App.svelte';
+import AppSwitch from '../AppSwitch/AppSwitch.svelte';
 
   interface DisplayedCategoySearchResults {
     category: SearchCategory;
@@ -57,18 +59,15 @@ import { DomUtils } from '../../../utils/dom-utils';
       }
       encounteredError = false;
 
-      console.log('Search results', JSON.parse(JSON.stringify(searchResults)));
-      
       displayedResults = getDisplayedResults(searchResults);
 
       console.log('Search results', displayedResults);
     });
 
   window.addEventListener('keydown', (event: KeyboardEvent) => {
-    console.log(event);
     if (event.ctrlKey && event.code === 'Space') {
       searchOpen = true;
-      focuSearchInput();
+      focuSearchInput(true);
     }
 
     const excludedFocusKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
@@ -127,7 +126,7 @@ import { DomUtils } from '../../../utils/dom-utils';
   }
 
 
-  function focuSearchInput() {
+  function focuSearchInput(select: boolean = false) {
     const textField = document.getElementsByClassName('search-text-field').item(0);
 
     if (textField) {
@@ -135,6 +134,9 @@ import { DomUtils } from '../../../utils/dom-utils';
 
       if (document.activeElement !== input) {
         input.focus();
+        if (select) {
+          input.select();
+        }
       }
     }
   }
@@ -172,6 +174,13 @@ import { DomUtils } from '../../../utils/dom-utils';
                 </Text>
               {/if}
 
+              
+              {#if result.infoComponent}
+              <div class="info-component">
+                <svelte:component this={result.infoComponent.component} {...result.infoComponent.props} />
+              </div>
+              {/if}
+
               {#if result.extraActions?.length > 0}
                 <div class="action-buttons" on:click={(event) => event.stopPropagation()}>
                   {#each result.extraActions as action}
@@ -181,6 +190,7 @@ import { DomUtils } from '../../../utils/dom-utils';
                   {/each}
                 </div>
               {/if}
+
             </Item>
           {/each}
           <!-- Show "View More" when displayed items are not equal the search results  -->
@@ -207,6 +217,10 @@ import { DomUtils } from '../../../utils/dom-utils';
     margin-left: auto;
     display: flex;
   }
+  
+  .info-component {
+    margin-left: auto;
+  }
 
   .signal-value {
     margin-left: auto;
@@ -223,7 +237,6 @@ import { DomUtils } from '../../../utils/dom-utils';
   }
 
   :global(.search-dialog .mdc-dialog__container) {
-    width: 40vw;
     align-items: flex-start;
     margin-top: 30px;
   }
@@ -232,10 +245,26 @@ import { DomUtils } from '../../../utils/dom-utils';
     width: 40vw;
   }
 
+  @media (max-width: 1400px) {
+    :global(.search-dialog .mdc-dialog__surface) {
+      width: 60vw;
+    }
+  }
+
+  @media (max-width: 1000px) {
+    :global(.search-dialog .mdc-dialog__surface) {
+      width: 80vw;
+    }
+  }
+
   :global(.search-dialog .mdc-dialog__content){
     overflow: hidden;
     display: flex;
     flex-direction: column;
+  }
+
+  :global(.search-text-field) {
+    min-height: 54px;
   }
 
   :global(.action-buttons .mdc-icon-button) {
