@@ -90,3 +90,7 @@ async function initServiceWorker(): Promise<void> {
 }
 
 initServiceWorker();
+
+setInterval(() => {
+    console.log('Background Heartbeat: ' + new Date().toISOString());
+}, 2000)
