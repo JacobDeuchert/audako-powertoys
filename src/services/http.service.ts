@@ -86,6 +86,16 @@ export class HttpService {
         return response.data; 
     }
 
+    public async sendDatSrcConfiguration(dataSourceId: string): Promise<void> {
+
+        const appConfig = this._appConfig.value;
+
+        const url = `${appConfig.Services.BaseUri}${appConfig.Services.Driver}/command/source/${dataSourceId}/configure`;
+        const headers = this._getAuthorizationHeader();
+        const response = await axios.get(url, {headers: headers});
+        return response.data;
+    }
+
     private _createBaseUrlByType(entityType: EntityType): string {
         const appConfig = this._appConfig.value;
         return `${appConfig.Services.BaseUri}${appConfig.Services.Structure}${this._typeUrlMapping[entityType]}`;

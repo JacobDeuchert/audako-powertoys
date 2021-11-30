@@ -1,13 +1,17 @@
 export enum EntityType {
     Group = 'Group', 
     Signal = 'Signal',
-    Dashboard = 'Dashboard'
+    Dashboard = 'Dashboard',
+    DataConnection = 'DataConnection',
+    DataSource = 'DataSource',
 }
 
 export const EntityIcons: {[p in EntityType]: string} = {
     [EntityType.Group]: 'fas fa-folder',
     [EntityType.Dashboard]: 'adk adk-dashboard',
-    [EntityType.Signal]: 'fas fa-code'
+    [EntityType.Signal]: 'fas fa-code',
+    [EntityType.DataConnection]: 'fas fa-circle-notch',
+    [EntityType.DataSource]: 'fas fa-server'
 }
 
 export class Field<T> {

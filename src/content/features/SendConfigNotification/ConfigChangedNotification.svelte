@@ -1,15 +1,22 @@
 <script lang="ts">
   import Snackbar, { Actions, Label, SnackbarComponentDev } from '@smui/snackbar';
+  import Button from '@smui/button';
   import { ConfigurationEntity, EntityType } from '../../../models/configuration-entity';
 import { Signal, SignalAnalogSettings, SignalCounterSettings, SignalDigitalSettings, SignalType } from '../../../models/signal';
 import { SignalUtils } from '../../../utils/signal-utils';
-  let snackbarWithAction: SnackbarComponentDev;
+import { container } from 'tsyringe';
+import { HttpService } from '../../../services/http.service';
+  
 
   type EntityChangeEvent = {
     oldEntity: ConfigurationEntity;
     newEntity: ConfigurationEntity;
     entityType: EntityType;
   };
+
+  let httpService: HttpService = container.resolve(HttpService);
+  
+  let snackbarWithAction: SnackbarComponentDev;
 
   document.addEventListener('entity-changed', (event: CustomEvent<EntityChangeEvent>) => {
     console.log('Entitychanged');
@@ -20,6 +27,25 @@ import { SignalUtils } from '../../../utils/signal-utils';
       }
     }
   });
+
+  async function getDataSourceIdForSignal(signal: Signal): Promise<string> {
+
+    const dataConnectionId = signal.DataConnectionId?.Value;
+
+    if (!dataConnectionId) {
+      return null;
+    }
+
+    const dataConnections = await httpService.queryConfiguration(EntityType.DataConnection, {Id: dataConnectionId});
+
+    const dataConnection = dataConnections[0];
+
+    if (!dataConnection) {
+      return null;
+    }  
+  } 
+
+  async function getDataSourceIdForDataConnection(dataConnection: DataConnection)
   
   function signalDatSrcConfigChanged(oldSignal: Signal, newSignal: Signal): boolean {
     if (!oldSignal) {
@@ -60,8 +86,15 @@ import { SignalUtils } from '../../../utils/signal-utils';
 </script>
 
 <main>
-  <Snackbar class="send-config-snackbar" timeoutMs={10000} bind:this={snackbarWithAction}>
-    <Label>Konfig senden</Label>
+  <Snackbar variant="stacked" class="send-config-snackbar" timeoutMs={10000} bind:this={snackbarWithAction}>
+    <Label>Konfiguration für Datenquelle geändert</Label>
+    <Actions>
+      <Button onclick={() => {
+        window.location.reload();
+      }}>
+        Konfig senden
+      </Button>
+    </Actions>
   </Snackbar>
 </main>
 
