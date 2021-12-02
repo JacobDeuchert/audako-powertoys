@@ -87,7 +87,7 @@
   }
 
   async function init(): Promise<void> {
-    systemSettings = await StorageUtils.getRegisterdSystemSettings();
+    systemSettings = await StorageUtils.getRegisteredSystemSettings();
     await checkForAudakoSystem();
     StorageUtils.listenForStatusChanges().subscribe(x => {
       console.log('Status changed: ', x);

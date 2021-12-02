@@ -17,6 +17,9 @@ export class HttpService {
         Group: '/base/Group',
         Signal: '/daq/Signal', 
         Dashboard: '/base/Dashboard',
+        DataConnection: '/daq/DataConnection', 
+        DataSource: '/daq/DataSource',
+        EventCondition: '/base/condition',
     };
 
     constructor(url?: string) {
@@ -30,19 +33,13 @@ export class HttpService {
         return this._appConfig.asObservable().pipe(filter(x => !!x));
     }
 
-    private async _requestAppConfig(): Promise<void> {
-        
-        try {
-            const response = await axios.get<AppConfig>(this._url + '/assets/conf/application.config')
-            if (response.status === 200) {
-                this._appConfig.next(response.data);
-            } else {
-                this._appConfig.error(response.status);
-            }
-        } catch (err) {
-            this._appConfig.error(err);
-        }
-    }
+
+    public async getEntityById<T extends ConfigurationEntity>(entityType: EntityType, id: string): Promise<T> {
+        const url = `${this._createBaseUrlByType(entityType)}/${id}`;
+        const headers = this._getAuthorizationHeader();
+        const response = await axios.get<T>(url, {headers: headers});
+        return response.data;
+    } 
 
     public async queryConfiguration<T extends ConfigurationEntity>(entityType: EntityType, query: {[p: string]: any}, 
                                                              paging?: {skip: number; limit: number}, projection?: {[p in keyof T]?: number}): Promise<Array<Partial<T>>> {
@@ -107,5 +104,19 @@ export class HttpService {
         return { 
             Authorization: `Bearer ${accessToken}`
         };   
+    }
+
+    private async _requestAppConfig(): Promise<void> {
+        
+        try {
+            const response = await axios.get<AppConfig>(this._url + '/assets/conf/application.config')
+            if (response.status === 200) {
+                this._appConfig.next(response.data);
+            } else {
+                this._appConfig.error(response.status);
+            }
+        } catch (err) {
+            this._appConfig.error(err);
+        }
     }
 }

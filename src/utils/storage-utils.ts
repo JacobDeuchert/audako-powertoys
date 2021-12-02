@@ -6,7 +6,7 @@ import { SystemStatus } from '../models/system-status';
 export type SystemStats = {[p: string]: SystemStatus};
 export class StorageUtils {
 
-  public static async getRegisterdSystemSettings(): Promise<SystemSettings[]> {
+  public static async getRegisteredSystemSettings(): Promise<SystemSettings[]> {
     const storageEntry = await chrome.storage.sync.get('registeredSystems') as {registeredSystems: SystemSettings[]};
     console.log(storageEntry);
     if (storageEntry && Array.isArray(storageEntry.registeredSystems)) {

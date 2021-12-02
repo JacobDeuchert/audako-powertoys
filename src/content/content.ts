@@ -14,10 +14,8 @@ if (!window['audako-powertoys']) {
 	window['audako-powertoys'] = true;
 
 	container.register<HttpService>(HttpService, {useValue: new HttpService()});
-	
-	injectScript('build/openInSameTab.js');
-	injectScript('build/signalChangedListener.js');
-	
+		
+	injectScript('build/injected-scripts.js');
 	
 	app = new App({
 		target: document.body,

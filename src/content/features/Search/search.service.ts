@@ -33,7 +33,7 @@ export class SearchService {
 
     private tenantIndexer: TenantIndexer;
 
-    private categorieQueries: {[cat in SearchCategory]: SearchQuery};
+    private categorieQueries: {[cat in SearchCategory]?: SearchQuery};
 
     constructor(private httpService: HttpService, private signalRService: SignalRService) {
 

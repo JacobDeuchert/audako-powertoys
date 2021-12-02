@@ -79,4 +79,16 @@ export class UrlUtils {
             return currentLocation;
         }))
     }
+
+    public static IsLocationInApp(app: AudakoApp): boolean {
+        const currentLocation = window.location.pathname;
+        const appUrl: {[app in AudakoApp] : string}= {
+            [AudakoApp.Administration]: 'administration',
+            [AudakoApp.Configuration]: 'config',
+            [AudakoApp.Dashboard]: 'application',
+            [AudakoApp.Commissioning]: 'commissioning'
+        }
+
+        return currentLocation.includes(appUrl[app]); 
+    }
 }

@@ -4,9 +4,10 @@ export enum EntityType {
     Dashboard = 'Dashboard',
     DataConnection = 'DataConnection',
     DataSource = 'DataSource',
+    EventCondition = 'EventCondition',
 }
 
-export const EntityIcons: {[p in EntityType]: string} = {
+export const EntityIcons: {[p in EntityType]?: string} = {
     [EntityType.Group]: 'fas fa-folder',
     [EntityType.Dashboard]: 'adk adk-dashboard',
     [EntityType.Signal]: 'fas fa-code',

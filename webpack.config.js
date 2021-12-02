@@ -10,9 +10,8 @@ module.exports = {
 	entry: {
 		'popup': ['./src/popup/popup.ts'],
     'content': ['./src/content/content.ts'],
-		'openInSameTab': ['./src/content/features/OpenInSameTab/OpenInSameTab.ts'],
-		'signalChangedListener': ['./src/content/features/SendConfigNotification/SignalChangedListener.ts'],
-    'background': ['./src/background.ts']
+    'background': ['./src/background.ts'],
+		'injected-scripts': ['./src/content/injected-scripts.ts']
 	},
 	resolve: {
 		alias: {

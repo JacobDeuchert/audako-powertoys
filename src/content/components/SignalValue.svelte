@@ -39,7 +39,7 @@
 
   function displaySignalValue(signal: Signal, signalValue: SignalLiveValue): void {
     console.log(signal, signalValue);
-    noValue = !signalValue || !signalValue.value;
+    noValue = !signalValue || (!signalValue.value && signalValue.value !== 0);
 
     if (noValue) return;
 
@@ -97,20 +97,21 @@
   {#if signal}
     <Wrapper>
       <div>
+      {#if noValue}
+        <i class="fas fa-exclamation-triangle" />
+      {:else}
+      
         {#if SignalUtils.isAnalog(signal) || SignalUtils.isCounter(signal)}
-          {#if stringValue}
             <p class="signal-value">{stringValue}</p>
-          {:else}
-            <i class="fas fa-exclamation-triangle" />
-          {/if}
         {:else if SignalUtils.isDigital(signal)}
           <div class="led" style={cssLedStyle} />
         {:else}
           <p class="signal-value">{stringValue}</p>
-        {/if}
-      </div>
+        {/if}  
+      {/if}
 
-      <Tooltip>{tooltip}</Tooltip>
+    </div>
+    <Tooltip>{tooltip}</Tooltip>
     </Wrapper>
   {/if}
 </main>

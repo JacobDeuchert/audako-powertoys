@@ -13,7 +13,7 @@ let healthCheckService: HealthCheckService;
 async function onNavigationComplete(navResult: chrome.webNavigation.WebNavigationFramedCallbackDetails): Promise<boolean> {
     const activeTab = (await chrome.tabs.query({active: true, currentWindow: true}))[0];
 
-    const systemSettings = registeredSystems.find((x) => activeTab.url?.includes(x.url));
+    const systemSettings = registeredSystems?.find((x) => activeTab.url?.includes(x.url));
      
     if (systemSettings && systemSettings.ft) {
         await injectContentPage(activeTab.id)
@@ -55,17 +55,17 @@ async function injectContentPage(tabId: number): Promise<void> {
 
     let errorCount = 0;
 
-    const timerSubscrition = timer(0, 250).subscribe(async() => {
+    const timerSubscription = timer(0, 250).subscribe(async() => {
         console.log('InjectContentPage', tabId);
         try {
             await chrome.scripting.executeScript({target: {tabId: tabId, allFrames: true}, files: ['build/content.js']});
             await chrome.scripting.insertCSS({target: {tabId: tabId, allFrames: true}, files: ['build/content.css']});
-            timerSubscrition.unsubscribe();
+            timerSubscription.unsubscribe();
 
         } catch (error) {
             errorCount++;
             if (errorCount > 5) {
-                timerSubscrition.unsubscribe();
+                timerSubscription.unsubscribe();
                 console.error('Failed to inject content page:', error);
             }
         }
@@ -76,14 +76,14 @@ async function injectContentPage(tabId: number): Promise<void> {
 async function initServiceWorker(): Promise<void> {
     console.log('Init Service Worker: ' + new Date().toISOString());
 
-    registeredSystems = await StorageUtils.getRegisterdSystemSettings();
+    // register event listeners on the first event loop to prevent listeners from getting inactive
+    chrome.webNavigation.onCompleted.addListener(onNavigationComplete.bind(this));
+    chrome.storage.onChanged.addListener(onStorageChanged.bind(this));
+
+    registeredSystems = await StorageUtils.getRegisteredSystemSettings();
     notificationSettings = await StorageUtils.getNotificationSettings();
 
     console.log('RegisteredSystems', registeredSystems);
-
-    chrome.webNavigation.onCompleted.addListener(onNavigationComplete.bind(this));
-    
-    chrome.storage.onChanged.addListener(onStorageChanged.bind(this));
 
     healthCheckService = new HealthCheckService();
     healthCheckService.observeSystemsHealth(registeredSystems);
@@ -91,6 +91,45 @@ async function initServiceWorker(): Promise<void> {
 
 initServiceWorker();
 
-setInterval(() => {
-    console.log('Background Heartbeat: ' + new Date().toISOString());
-}, 2000)
+let lifeline;
+
+keepAlive()
+
+// send message every 5min from tab to the service worker to keep it alive
+async function keepAlive() {
+    if (lifeline) return;
+    for (const tab of await chrome.tabs.query({ url: '*://*/*' })) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            chrome.runtime.connect({ name: 'keepAlive' });
+            console.log('keepAlive');
+          },
+        });
+        chrome.tabs.onUpdated.removeListener(retryOnTabUpdate);
+        return;
+      } catch (e) {}
+    }
+    chrome.tabs.onUpdated.addListener(retryOnTabUpdate);
+  }
+  
+  function keepAliveForced() {
+    lifeline?.disconnect();
+    lifeline = null;
+    keepAlive();
+  }
+  
+  async function retryOnTabUpdate(tabId, info, tab) {
+    if (info.url && /^(file|https?):/.test(info.url)) {
+      keepAlive();
+    }
+  }
+  
+  chrome.runtime.onConnect.addListener(port => {
+    if (port.name === 'keepAlive') {
+      lifeline = port;
+      setTimeout(keepAliveForced, 295e3);
+      port.onDisconnect.addListener(keepAliveForced);
+    }
+  });

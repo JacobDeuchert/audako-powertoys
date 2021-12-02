@@ -1,13 +1,14 @@
 import { EntityType } from '../../../models/configuration-entity';
 import { Signal, SignalType } from '../../../models/signal';
 import { HttpRequestUtils } from '../../../utils/http-request-utils';
+import { EntityChangeEvent } from './entity-changed-event';
 
 let editedSignal: Signal = null;
 
 function listenForSignalEditRequest(xmlRequest: XMLHttpRequest, methode: string, requestUrl: string) {
   const isCompletedGetRequest =
     xmlRequest.readyState === XMLHttpRequest.DONE && xmlRequest.status === 200 && methode === 'GET';
-
+  
   if (isCompletedGetRequest) {
     const isSignalRequest = requestUrl.match(/daq\/signal\/(.){24}$/);
     if (isSignalRequest) {
@@ -41,7 +42,7 @@ function listenForSignalSavedRequest(xmlRequest: XMLHttpRequest, methode: string
       console.info('SavedSignal', data);
 
       document.dispatchEvent(
-        new CustomEvent('entity-changed', { detail: { oldEntity: editedSignal, newEntity: data, entityType: EntityType.Signal} })
+        new CustomEvent<EntityChangeEvent>('entity-changed', { detail: { oldEntity: editedSignal, newEntity: data, entityType: EntityType.Signal} })
       );
     }
   }
