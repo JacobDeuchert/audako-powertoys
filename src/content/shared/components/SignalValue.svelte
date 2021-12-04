@@ -2,14 +2,13 @@
   import Tooltip, { Wrapper } from '@smui/tooltip';
   import { afterUpdate } from 'svelte';
 
-  import { Signal, SignalAnalogSettings, SignalDigitalSettings, SignalType } from '../../models/signal';
+  import { Signal, SignalAnalogSettings, SignalDigitalSettings, SignalType } from '../../../models/signal';
   import dayjs from 'dayjs';
   import 'dayjs/locale/de';
-  import { SignalLiveValue } from '../../services/signalR.service';
-  import { ColorUtils } from '../../utils/color-utils';
+  import { SignalLiveValue } from '../../../services/signalR.service';
+  import { ColorUtils } from '../../../utils/color-utils';
   import { isObservable, Observable, Subscription } from 'rxjs';
-  import SignalLiveValues from '../features/LiveValues/SignalLiveValues.svelte';
-  import { SignalUtils } from '../../utils/signal-utils';
+  import { SignalUtils } from '../../../utils/signal-utils';
 
   export let signal: Signal;
   export let signalValue: SignalLiveValue | Observable<SignalLiveValue>;

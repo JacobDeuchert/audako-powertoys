@@ -1,52 +1,60 @@
 import { EntityType } from '../../../models/configuration-entity';
 import { Signal, SignalType } from '../../../models/signal';
 import { HttpRequestUtils } from '../../../utils/http-request-utils';
-import { EntityChangeEvent } from './entity-changed-event';
+import { EntityChangeEvent, EntityDeleteEvent } from './entity-event';
 
 let editedSignal: Signal = null;
 
-function listenForSignalEditRequest(xmlRequest: XMLHttpRequest, methode: string, requestUrl: string) {
-  const isCompletedGetRequest =
-    xmlRequest.readyState === XMLHttpRequest.DONE && xmlRequest.status === 200 && methode === 'GET';
-  
-  if (isCompletedGetRequest) {
-    const isSignalRequest = requestUrl.match(/daq\/signal\/(.){24}$/);
-    if (isSignalRequest) {
-      const inSignalList = window.location.pathname.endsWith('/list/Signal');
-      const inSignalConfig = window.location.pathname.match(/detail\/(.){24}\/Signal/);
+function listenForSignalEditRequest(requestUrl: string, responseBody: Signal) {
+  const isSignalRequest = requestUrl.match(/daq\/signal\/(.){24}$/);
+  if (isSignalRequest) {
 
-      if (inSignalList || inSignalConfig) {
-        let data = JSON.parse(xmlRequest.responseText);
-
-        editedSignal = data;
-        console.info('EditedSignal', data, methode, requestUrl);
-      }
+    if (inSignalList() || inSignalConfig()) {
+      editedSignal = responseBody;
+      console.info('EditedSignal', responseBody, requestUrl);
     }
   }
 }
 
-function listenForSignalSavedRequest(xmlRequest: XMLHttpRequest, methode: string, requestUrl: string) {
-  const isCompletedPostRequest =
-    xmlRequest.readyState === XMLHttpRequest.DONE && xmlRequest.status === 200 && methode === 'POST';
-  const isCompletedPutRequest =
-    xmlRequest.readyState === XMLHttpRequest.DONE && xmlRequest.status === 200 && methode === 'PUT';
+function listenForSignalSavedRequest(requestUrl: string, responseBody: Signal) {
+  
+  const signalCreateRequest = requestUrl.endsWith('daq/signal');
+  const signalUpdateRequest = requestUrl.match(/daq\/signal\/(.){24}$/);
 
-  const signalPostRequest = requestUrl.endsWith('daq/signal');
-  const signalPutRequest = requestUrl.match(/daq\/signal\/(.){24}$/);
-
-  if ((isCompletedPostRequest && signalPostRequest) || (isCompletedPutRequest && signalPutRequest)) {
-    const inSignalConfig = window.location.pathname.match(/detail\/(.){24}\/Signal/);
-
-    if (inSignalConfig) {
-      let data = JSON.parse(xmlRequest.responseText);
-      console.info('SavedSignal', data);
+  if (signalCreateRequest || signalUpdateRequest) {
+    if (inSignalConfig()) {
+      console.info('SavedSignal', responseBody);
 
       document.dispatchEvent(
-        new CustomEvent<EntityChangeEvent>('entity-changed', { detail: { oldEntity: editedSignal, newEntity: data, entityType: EntityType.Signal} })
+        new CustomEvent<EntityChangeEvent>('entity-changed', { detail: { oldEntity: editedSignal, newEntity: responseBody, entityType: EntityType.Signal} })
       );
     }
   }
 }
 
-HttpRequestUtils.addXMLHttpRequestOverride(listenForSignalEditRequest);
-HttpRequestUtils.addXMLHttpRequestOverride(listenForSignalSavedRequest);
+function listenForSignalDeleteRequest(requestUrl: string, payload: any): void {
+  if (requestUrl.includes('daq/signal/')) {
+    const signalId = requestUrl.substring(requestUrl.length - 24);
+    if (signalId == editedSignal?.Id && signalId.length === 24) {
+      document.dispatchEvent(
+        new CustomEvent<EntityDeleteEvent>('entity-deleted', { detail: { entity: editedSignal, entityType: EntityType.Signal}})
+      );
+    }
+  }
+}
+
+function inSignalConfig(): boolean {
+  const inSignalConfig = window.location.pathname.match(/detail\/(.){24}\/Signal/);
+  return !!inSignalConfig;
+}
+
+function inSignalList(): boolean {
+  return window.location.pathname.endsWith('/list/Signal');
+}
+
+HttpRequestUtils.onSuccessfulGetRequest(listenForSignalEditRequest);
+
+HttpRequestUtils.onSuccessfulPostRequest(listenForSignalSavedRequest);
+HttpRequestUtils.onSuccessfulPutRequest(listenForSignalSavedRequest);
+
+HttpRequestUtils.onSuccessfulDeleteRequest(listenForSignalDeleteRequest);

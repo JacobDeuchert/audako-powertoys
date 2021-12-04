@@ -50,7 +50,7 @@ export class HttpRequestUtils {
         xmlRequest.readyState === XMLHttpRequest.DONE && xmlRequest.status === 200 && method === 'GET';
       
         if (isSuccessfulGetRequest) {
-          const responseData = xmlRequest.responseText ? JSON.parse(xmlRequest.responseText) : null 
+          let responseData = this.tryParseToJson(xmlRequest.responseText); 
           callBack(url, responseData);
         }
       }
@@ -65,7 +65,7 @@ export class HttpRequestUtils {
         xmlRequest.readyState === XMLHttpRequest.DONE && xmlRequest.status === 200 && method === 'POST';
       
         if (isSuccessfulGetRequest) {
-          const responseData = xmlRequest.responseText ? JSON.parse(xmlRequest.responseText) : null
+          const responseData = this.tryParseToJson(xmlRequest.responseText);
           callBack(url, responseData);
         }
       }
@@ -96,7 +96,7 @@ export class HttpRequestUtils {
         xmlRequest.readyState === XMLHttpRequest.DONE && xmlRequest.status === 200 && method === 'DELETE';
       
         if (isSuccessfulGetRequest) {
-          const responseData = xmlRequest.responseText ? JSON.parse(xmlRequest.responseText) : null;
+          const responseData = this.tryParseToJson(xmlRequest.responseText);
           callBack(url, responseData);
         }
       }
@@ -104,4 +104,11 @@ export class HttpRequestUtils {
     HttpRequestUtils.addXMLHttpRequestOverride(xmlRequestOverride);
   }
 
+  private static tryParseToJson(text: string): string {
+    try {
+      return text ? JSON.stringify(text) : null;
+    } catch (e) {
+      return text;
+    }
+  }
 }

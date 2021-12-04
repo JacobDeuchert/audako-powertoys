@@ -5,3 +5,8 @@ export type EntityChangeEvent = {
   newEntity: ConfigurationEntity;
   entityType: EntityType;
 };
+
+export type EntityDeleteEvent = {
+  entity: ConfigurationEntity;
+  entityType: EntityType;
+}

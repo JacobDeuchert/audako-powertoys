@@ -3,7 +3,7 @@ import { EntityType } from '../../../models/configuration-entity';
 import { EventCondition } from '../../../models/event-condition';
 import { HttpRequestUtils } from '../../../utils/http-request-utils';
 import { UrlUtils } from '../../../utils/url-utils';
-import { EntityChangeEvent } from './entity-changed-event';
+import { EntityChangeEvent } from './entity-event';
 
 let editedConditions: EventCondition[] = [];
 
@@ -11,7 +11,7 @@ let editedConditions: EventCondition[] = [];
 function listenForConditionsPostQueryRequest(requestUrl: string, payload: any) {
   if (requestUrl.endsWith('base/condition/query/')) {
 
-    if (UrlUtils.IsLocationInApp(AudakoApp.Configuration)) {
+    if (UrlUtils.isActiveApp(AudakoApp.Configuration)) {
       const inSignalConfig = window.location.pathname.match(/detail\/(.){24}\/Signal/);
       const inDataConnectionConfig = window.location.pathname.match(/detail\/(.){24}\/DataConnection/);
 
@@ -24,7 +24,7 @@ function listenForConditionsPostQueryRequest(requestUrl: string, payload: any) {
 }
 
 function listenForConditionSaveRequest(requestUrl: string, payload: any) {
-  if (requestUrl.endsWith('base/condition')) {
+  if (requestUrl.includes('base/condition') && !requestUrl.endsWith('query')) {
     const savedCondition = payload as EventCondition;
     const oldCondition = editedConditions.find((x) => x.Id === savedCondition.Id);
 
@@ -53,6 +53,7 @@ function listenForConditionDeleteRequest(requestUrl: string, payload: any) {
     if (deletedConditionId && deletedConditionId.length == 24) {
       const deletedCondition = editedConditions.find(x => x.Id === deletedConditionId);
       if (deletedCondition) {
+        console.info('DeletedCondition: ', deletedCondition)
         document.dispatchEvent(
           new CustomEvent<EntityChangeEvent>('entity-changed', {
             detail: {

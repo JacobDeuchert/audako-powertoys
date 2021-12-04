@@ -11,7 +11,7 @@
 tap,
   } from 'rxjs';
 import { SvelteComponent } from 'svelte/internal';
-  import SignalValue from './../../components/SignalValue.svelte';
+  import SignalValue from '../../shared/components/SignalValue.svelte';
   import { container } from 'tsyringe';
 import { Signal } from '../../../models/signal';
 import { EntityType } from '../../../models/configuration-entity';

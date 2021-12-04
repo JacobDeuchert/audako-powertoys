@@ -11,7 +11,7 @@ import { SearchResult } from '../search-results';
 import { TenantIndexer } from '../tenant-indexer';
 import { SearchQuery } from './search-query';
 // @ts-ignore
-import SignalValue from '../../../components/SignalValue.svelte';
+import SignalValue from '../../../shared/components/SignalValue.svelte';
 
 
 export class SignalQuery extends SearchQuery {

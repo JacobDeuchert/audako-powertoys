@@ -13,7 +13,7 @@
   import { container } from 'tsyringe';
   import { HttpService } from '../../../services/http.service';
   import { DataConnection } from '../../../models/data-connection';
-  import { EntityChangeEvent } from './entity-changed-event';
+  import { EntityChangeEvent, EntityDeleteEvent } from './entity-event';
   import { EventCondition, EventConditionSettingsType, SignalConditionSettings } from '../../../models/event-condition';
 
   let httpService: HttpService = container.resolve(HttpService);
@@ -24,15 +24,11 @@
 
   document.addEventListener('entity-changed', async (changeEvent: CustomEvent<EntityChangeEvent>) => {
     console.log('Entitychanged');
+    const oldEntity = changeEvent.detail.oldEntity;
+    const newEntity = changeEvent.detail.newEntity;
 
     if (changeEvent.detail.entityType === EntityType.Signal) {
-      if (signalDatSrcConfigChanged(changeEvent.detail.oldEntity as Signal, changeEvent.detail.newEntity as Signal)) {
-        const dataSourceId = await getDataSourceIdForSignal(changeEvent.detail.newEntity as Signal);
-        if (dataSourceId) {
-          changedDataSource = dataSourceId;
-          snackbarWithAction.open();
-        }
-      }
+      handleSignalChange(oldEntity as Signal, newEntity as Signal);
     }
 
     if (changeEvent.detail.entityType === EntityType.EventCondition) {
@@ -40,9 +36,32 @@
     }
   });
 
+    document.addEventListener('entity-deleted', async (deleteEvent: CustomEvent<EntityDeleteEvent>) => {
+    console.log('EntityDeleted');
+    const deletedEntity = deleteEvent.detail.entity;
+
+    if (deleteEvent.detail.entityType === EntityType.Signal && deleteEvent.detail.entity) {
+        handleSignalChange(deletedEntity as Signal, null);
+      }
+  });
+
   function sendDatSrcConfiguration(): void {
     console.log('DatSrcConfiguration');
     httpService.sendDatSrcConfiguration(changedDataSource);
+  }
+
+  async function handleSignalChange(oldSignal: Signal, newSignal: Signal): Promise<void> {
+    if (!oldSignal || !newSignal || signalDatSrcConfigChanged(oldSignal, newSignal)) {
+      let dataSourceId = await getDataSourceIdForSignal(newSignal ?? oldSignal);
+      createNotificationForDataSource(dataSourceId);
+    }       
+  }
+
+  function createNotificationForDataSource(dataSourceId: string): void {
+    if (dataSourceId) {
+      changedDataSource = dataSourceId;
+      snackbarWithAction.open()
+    }
   }
 
   async function getDataSourceIdForCondition(condition: EventCondition): Promise<string> {
@@ -93,15 +112,12 @@
       oldSignal?.DataConnectionId?.Value !== newSignal?.DataConnectionId?.Value ||
       oldSignal?.Address?.Value !== newSignal?.Address?.Value ||
       oldSignal?.Type?.Value !== newSignal?.Type?.Value ||
-      signalSettingsChanged(oldSignal, newSignal)
+      signalTypeSettingsChanged(oldSignal, newSignal)
     );
   }
 
-  function signalSettingsChanged(oldSignal: Signal, newSignal: Signal): boolean {
-    if (oldSignal?.Type?.Value !== newSignal?.Type?.Value) {
-      return true;
-    }
-
+  function signalTypeSettingsChanged(oldSignal: Signal, newSignal: Signal): boolean {
+    
     if (SignalUtils.isAnalog(newSignal) || SignalUtils.isCounter(newSignal)) {
       const oldAnalogSettings = oldSignal?.Settings as SignalAnalogSettings | SignalCounterSettings;
       const newAnalogSettings = newSignal?.Settings as SignalAnalogSettings | SignalCounterSettings;
