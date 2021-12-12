@@ -72,7 +72,7 @@ export class StorageUtils {
 
   public static async getSearchRequisites(systemUrl: string): Promise<SearchRequisites> {
     const storageEntry = await chrome.storage.local.get(`${systemUrl}_searchrequisites`) as {[p: string]: SearchRequisites};
-    return storageEntry[systemUrl];
+    return storageEntry[`${systemUrl}_searchrequisites`];
   }
 
   public static async setSearchRequisites(systemUrl: string, searchRequisites: SearchRequisites): Promise<void> {

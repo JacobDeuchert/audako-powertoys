@@ -1,6 +1,6 @@
 <script lang="ts">
   import Tooltip, { Wrapper } from '@smui/tooltip';
-  import { afterUpdate } from 'svelte';
+  import { afterUpdate, onDestroy } from 'svelte';
 
   import { Signal, SignalAnalogSettings, SignalDigitalSettings, SignalType } from '../../../models/signal';
   import dayjs from 'dayjs';
@@ -12,9 +12,13 @@
 
   export let signal: Signal;
   export let signalValue: SignalLiveValue | Observable<SignalLiveValue>;
+  export let displayTimestamp: boolean = false;
+
   let stringValue: string;
   let boolValue: boolean;
-  let noValue: boolean;
+  let noValue: boolean = true;
+
+  let timestamp: string;
 
   let tooltip: string;
 
@@ -36,11 +40,20 @@
     }
   });
 
+  onDestroy(() => {
+    if (valueSubscription) {
+      valueSubscription.unsubscribe();
+    }
+    console.log("onDestroy");
+  });
+
   function displaySignalValue(signal: Signal, signalValue: SignalLiveValue): void {
-    console.log(signal, signalValue);
     noValue = !signalValue || (!signalValue.value && signalValue.value !== 0);
+    
 
     if (noValue) return;
+
+    timestamp = dayjs(signalValue.timestamp).locale('de').format('DD.MM.YYYY HH:mm:ss');
 
     createTooltip(signal, signalValue);
 
@@ -57,9 +70,9 @@
     tooltip = dayjs(signalValue.timestamp).locale('de').format('DD.MM.YYYY HH:mm:ss');
 
     const analogSettings = signal.Settings as SignalAnalogSettings;
-
+    
     stringValue =
-      signalValue.value?.toFixed(analogSettings?.DecimalPlaces?.Value ?? 2) + ' ' + analogSettings?.Unit?.Value;
+      new Intl.NumberFormat('de-DE', {maximumFractionDigits: (analogSettings?.DecimalPlaces?.Value ?? 2)}).format(signalValue.value) + ' ' + analogSettings?.Unit?.Value;
   }
 
   function displayDigitalValue(signal: Signal, signalValue: SignalLiveValue): void {
@@ -77,7 +90,7 @@
   }
 
   function createTooltip(signal: Signal, signalValue: SignalLiveValue): void {
-    tooltip = dayjs(signalValue.timestamp).locale('de').format('DD.MM.YYYY HH:mm:ss');
+    tooltip = timestamp;
     if (SignalUtils.isDigital(signal)) {
       const digitalSettings = signal.Settings as SignalDigitalSettings;
       tooltip = boolValue
@@ -95,7 +108,7 @@
 <main>
   {#if signal}
     <Wrapper>
-      <div>
+      <div style="display: flex">
       {#if noValue}
         <i class="fas fa-exclamation-triangle" />
       {:else}
@@ -106,8 +119,15 @@
           <div class="led" style={cssLedStyle} />
         {:else}
           <p class="signal-value">{stringValue}</p>
-        {/if}  
+        {/if}
+        {#if displayTimestamp}
+          <div style="margin-left: 5px">
+            ({timestamp})
+          </div>
+        {/if}
       {/if}
+
+      
 
     </div>
     <Tooltip>{tooltip}</Tooltip>

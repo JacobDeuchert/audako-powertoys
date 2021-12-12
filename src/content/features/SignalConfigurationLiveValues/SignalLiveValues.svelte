@@ -1,7 +1,10 @@
 <script lang="ts">
   import {
     BehaviorSubject,
+    concatAll,
     filter,
+    finalize,
+    first,
     from,
     map,
     Observable,
@@ -26,8 +29,11 @@ import { DomUtils } from '../../../utils/dom-utils';
 
   const hubConnected$ = new BehaviorSubject<boolean>(false);
 
-  const urlContextChange = new Subject<void>();
+  
   let listDomSubscription: Subscription;
+
+  let configLiveElement: HTMLElement;
+  let configLiveValueComponent: SignalValue;
 
   // listen for urls changes and show live values if user is in signal list or signal form
   UrlUtils.subscribeToUrl().subscribe((url) => {
@@ -35,19 +41,22 @@ import { DomUtils } from '../../../utils/dom-utils';
       initHubConnection();
       showSignalValuesInList();
     } else {
-      urlContextChange.next();
-
+    
       if (listDomSubscription) {
         listDomSubscription.unsubscribe();
         listDomSubscription = null;
       }
     }
 
-    if (url?.includes('/detail/') && url?.includes('/Signal')) {
+    const configDetails = UrlUtils.getEntityConfigurationDetails();
+    if (UrlUtils.isInEntityConfiguration() && configDetails.entityType === EntityType.Signal && configDetails.entityId !== 'NEW') {
       initHubConnection();
-      showSignalValuesInList();
+      showSignalValueInForm();
     } else {
-      urlContextChange.next();
+      if (configLiveElement) {
+        configLiveValueComponent.$destroy();
+        configLiveElement.remove();
+      }
     }
   });
 
@@ -58,13 +67,12 @@ import { DomUtils } from '../../../utils/dom-utils';
 
     listDomSubscription = DomUtils.watchForDomChanges(document, 100)
       .pipe(
+        finalize(() => console.log('Finalized')),
         map((): string[] => {
           const table = document
             .getElementsByClassName('mat-table cdk-table')
             .item(0); 
           const tableBody = table?.getElementsByTagName('tbody').item(0);
-
-          console.log(tableBody?.childElementCount);
 
           if (tableBody) {
             let idColumns = tableBody.getElementsByClassName(
@@ -87,16 +95,12 @@ import { DomUtils } from '../../../utils/dom-utils';
         }),
         tap((unknownSignals: Partial<Signal>[]) => {
 
-          console.log(unknownSignals);
-
           signals.push(...unknownSignals);
 
           const table = document
             .getElementsByClassName('mat-table cdk-table')
             .item(0);
           
-          console.log(table);
-
           // Add Header Cell if not already present
           const tableHeader = table?.getElementsByTagName('thead').item(0);
           const tableHeaderRow = tableHeader
@@ -160,7 +164,40 @@ import { DomUtils } from '../../../utils/dom-utils';
       });
   }
 
-  function showSignalValueInForm(): void {}
+  function showSignalValueInForm(): void {
+    
+    let liveComponentAnchor: HTMLElement = null; 
+
+    DomUtils.watchForDomChanges(document, 200).pipe(
+      map(changes => document.getElementsByClassName('mat-expansion-panel')),
+      filter((panels: HTMLCollection) => panels.length > 0),
+      first(),
+      tap((panels: HTMLCollection) => {
+        const basicConfigurationPanel = panels.item(0);
+        const panelContent = basicConfigurationPanel?.lastChild?.firstChild;
+        const {liveValueElement, componentAnchor} = createLiveValueElementWithComponentAnchor();
+        configLiveElement = liveValueElement;
+        liveComponentAnchor = componentAnchor;
+        panelContent.appendChild(liveValueElement);
+      }),
+      switchMap(() => {
+        const signalId = UrlUtils.getEntityConfigurationDetails().entityId;
+        return httpService.getEntityById(EntityType.Signal, signalId);
+      })
+    ).subscribe((signal: Signal)=> {
+      console.log(signal);
+      const liveValue$ = signalRService.subscribeToSignalValues([signal]).pipe(concatAll(), tap(x=> console.log(x)));
+      configLiveValueComponent = new SignalValue({
+        target: liveComponentAnchor,
+        props: {
+          signal: signal,
+          signalValue: liveValue$,
+          displayTimestamp: true
+
+        }
+      }); 
+    }); 
+  }
 
   function getSignals(ids: string[]): Observable<Partial<Signal>[]> {
     const query = { Id: { $in: ids } };
@@ -192,6 +229,19 @@ import { DomUtils } from '../../../utils/dom-utils';
       .subscribe(() => {
         hubConnected$.next(true);
       });
+  }
+
+  function createLiveValueElementWithComponentAnchor(): {liveValueElement: HTMLElement, componentAnchor: HTMLElement} {
+    const liveValueElement = document.createElement('div');
+    const liveComponentAnchor = document.createElement('div');
+
+    liveComponentAnchor.style.padding = "0 0 0 8px";
+
+    liveValueElement.innerText = 'Live-Wert:';
+    liveValueElement.style.display = 'flex';
+
+    liveValueElement.appendChild(liveComponentAnchor);
+    return {liveValueElement: liveValueElement, componentAnchor: liveComponentAnchor};
   }
 </script>
 

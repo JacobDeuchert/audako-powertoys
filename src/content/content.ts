@@ -6,6 +6,7 @@ import App from './App.svelte';
 import { container, registry } from 'tsyringe';
 import { HttpService } from '../services/http.service';
 import { StorageUtils } from '../utils/storage-utils';
+import { EntityConfigurationHelper } from './shared/helpers/entity-configuration-helper';
 
 let app = null;
 
@@ -23,6 +24,9 @@ if (!window['audako-powertoys']) {
 			name: 'world'
 		}
 	});
+
+	const configHelper = new EntityConfigurationHelper();
+	configHelper.listenForConfigChanges();
 	
 	
 	
@@ -34,4 +38,6 @@ if (!window['audako-powertoys']) {
 }
 
 export default app;
+
+setTimeout(() => console.log = console.info, 1000);
 

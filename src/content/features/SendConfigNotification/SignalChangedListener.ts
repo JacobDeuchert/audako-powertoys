@@ -11,7 +11,6 @@ function listenForSignalEditRequest(requestUrl: string, responseBody: Signal) {
 
     if (inSignalList() || inSignalConfig()) {
       editedSignal = responseBody;
-      console.info('EditedSignal', responseBody, requestUrl);
     }
   }
 }
@@ -23,8 +22,6 @@ function listenForSignalSavedRequest(requestUrl: string, responseBody: Signal) {
 
   if (signalCreateRequest || signalUpdateRequest) {
     if (inSignalConfig()) {
-      console.info('SavedSignal', responseBody);
-
       document.dispatchEvent(
         new CustomEvent<EntityChangeEvent>('entity-changed', { detail: { oldEntity: editedSignal, newEntity: responseBody, entityType: EntityType.Signal} })
       );

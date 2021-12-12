@@ -10,7 +10,7 @@ export type SignalLiveValue= {
   timestamp: Date;
 };
 
-export enum LiveHubMethode {
+export enum LiveHubMethod {
   ChangeModeAsync = 'ChangeModeAsync',
   ChangeIntervalAsync = 'ChangeIntervalAsync',
   SubscribeMany = 'SubscribeMany',
@@ -60,8 +60,8 @@ export class SignalRService {
     this.hubConnection
       .start()
       .then(() => {
-        this._sendMessage(LiveHubMethode.ChangeModeAsync, true);
-        this._sendMessage(LiveHubMethode.ChangeIntervalAsync, 500);
+        this._sendMessage(LiveHubMethod.ChangeModeAsync, true);
+        this._sendMessage(LiveHubMethod.ChangeIntervalAsync, 500);
       
         this.hubConnection.on('Send', (values: SignalLiveValue[]) => {
           values.forEach((value: SignalLiveValue) => {
@@ -140,7 +140,7 @@ export class SignalRService {
     const notSubscribedIds = packageIds.filter((id) => !this._subscribedIds.includes(id));
 
     if (this.hubConnection && notSubscribedIds.length > 0) {
-       this._sendMessage(LiveHubMethode.SubscribeMany, notSubscribedIds);
+       this._sendMessage(LiveHubMethod.SubscribeMany, notSubscribedIds);
       this._subscribedIds.push(...notSubscribedIds);
     }
 
@@ -171,13 +171,13 @@ export class SignalRService {
     return {
       identifier: signal.Id,
       timestamp: timestamp,
-      value: offsetValue?.value ?? 0 + signalValue?.value ?? 0
+      value: (offsetValue?.value ?? 0) + (signalValue?.value ?? 0)
     }
   }
   
-  private _sendMessage(methode: LiveHubMethode, ...args: any[]): void {
+  private _sendMessage(method: LiveHubMethod, ...args: any[]): void {
     if (this.hubConnection) {
-      this.hubConnection.send(methode, ...args);
+      this.hubConnection.send(method, ...args);
     }
   }
 

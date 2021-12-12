@@ -105,14 +105,16 @@ export class UrlUtils {
     return this.isActiveApp(AudakoApp.Configuration) && currentLocation.includes('detail');
   }
 
-  public static getEntityConfigurationDetails(): { tenantId: string; groupId: string; entityType: EntityType } {
+  public static getEntityConfigurationDetails(): { tenantId: string; groupId: string; entityId: string; entityType: EntityType } {
     const currentLocation = window.location.pathname;
 
-    const matchResults = currentLocation.match(/config\/(.{24})\/detail\/(.{24})\/([a-z]+)/);
+    const matchResults = currentLocation.match(/(.{24})\/config\/(.{24})\/detail\/(.{3,24})\/([A-z]+)/);
+    if (!matchResults) return null;
     return {
       tenantId: matchResults[1],
       groupId: matchResults[2],
-      entityType: matchResults[3] as EntityType,
+      entityId: matchResults[3],
+      entityType: matchResults[4] as EntityType,
     };
   }
 
