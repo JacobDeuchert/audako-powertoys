@@ -122,4 +122,16 @@ export class UrlUtils {
     const currentLocation = window.location.pathname;
     return currentLocation.includes('list')
   }
+
+  public static getEntityListDetails(): {tenantId: string; groupId: string, entityType: EntityType} {
+    const currentLocation = window.location.pathname;
+    const matchResults = currentLocation.match(/(.{24})\/config\/(.{24})\/list\/([A-z]+)/);
+    if (!matchResults) return null;
+
+    return {
+      tenantId: matchResults[1],
+      groupId: matchResults[2],
+      entityType: matchResults[3] as EntityType
+    };
+  }
 }

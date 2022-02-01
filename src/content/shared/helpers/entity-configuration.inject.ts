@@ -1,27 +1,27 @@
-import { delay, filter, finalize, first, firstValueFrom, isObservable, map, Observable, of, switchMap, tap } from 'rxjs';
+import { delay, distinctUntilChanged, filter, finalize, first, firstValueFrom, isObservable, map, Observable, of, switchMap, tap } from 'rxjs';
+import { ConfigurationEntity, EntityType } from '../../../models/configuration-entity';
 import { ComponentUtils } from '../../../utils/component-utils';
 import { DomUtils } from '../../../utils/dom-utils';
 import { UrlUtils } from '../../../utils/url-utils';
+import { EntityChangeEvent } from '../../features/SendConfigNotification/entity-event';
 
-let editedEntity = null;
 
 const detailComponentRendered = () => {
-  return DomUtils.watchForDomChanges(document).pipe(
-    map(() => document.getElementsByTagName('audako4-config-detail').item(0)),
-    filter((element) => !!element),
-    first(), 
-    finalize(() => console.info('Finalizing'))
-  )
-}
-
-const listComponentRendered = () => {
   return DomUtils.watchForDomChanges(document).pipe(
     map(() => document.getElementsByTagName('audako4-config-detail').item(0)),
     filter((element) => !!element),
     first()
   )
 }
-let a = 0
+
+const listComponentRendered = () => {
+  return DomUtils.watchForDomChanges(document).pipe(
+    map(() => document.getElementsByTagName('audako4-config-linelist').item(0)),
+    filter((element) => !!element),
+    distinctUntilChanged()
+  )
+}
+
 UrlUtils.subscribeToUrl().pipe(
   filter(() => UrlUtils.isInEntityConfiguration()),
   map(() => UrlUtils.getEntityConfigurationDetails()?.entityType),
@@ -31,51 +31,56 @@ UrlUtils.subscribeToUrl().pipe(
       return of(null);
     }
     return detailComponentRendered()
-  }),
-  tap(x => console.info(x, 'ComponentElement')),
+  })
 ).subscribe(detailComponentElement => {
   if (detailComponentElement) {
-    const comp = ComponentUtils.getComponentFromElement(detailComponentElement) as any;
-    console.info(comp);
-    console.info(comp['overridden_save']);
-    comp['overridden_save'] = true;
-    let b = a++;
-    
-    
+    const comp = ComponentUtils.getComponentFromElement(detailComponentElement) as any;  
     const saveOverride = async () => {
-      console.info(b);
+      
       let savedValue = comp.formComponent.getValues();
       if (isObservable(savedValue)) {
         savedValue = await firstValueFrom((comp.formComponent.getValues() as Observable<any>));
       }
-      
-      console.info(JSON.parse(JSON.stringify(comp.Data)), savedValue);
+      console.info(comp);
+      if (comp.formComponent.isValid()) {
+        dispatchEntityEvent(comp.Type as EntityType, comp.Data, savedValue);
+      }
     }
     ComponentUtils.extendMethodAsync(comp, 'save', saveOverride);
   } 
-      
-  
-  // if (UrlUtils.isInEntityConfiguration()) {
-  //   console.info('1')
-  //   const configDetailComponent = document.getElementsByTagName('audako4-config-detail').item(0);
-  //   if (configDetailComponent) { 
-  //     const context: any[] = configDetailComponent['__ngContext__'];
-  //     const comp = context[context.length - 1];
-  //     console.info(comp.__proto__);
-  //     const currentSave = comp.__proto__.save;
-  //     comp.__proto__.save = () => {
-  //       console.info(comp);
-  //       const saved = comp.formComponent.getValues();
-  //       console.info(JSON.parse(JSON.stringify(comp.Data)), JSON.parse(JSON.stringify(saved)))
-  //       currentSave.bind(comp)();
-  //     }
-  //   }
-  // }
 });
 
-function listenToConfigurationEntered(requestUrl: string, responseBody: any) {
+UrlUtils.subscribeToUrl().pipe(
+  map(() => UrlUtils.getEntityListDetails()?.entityType),
+  switchMap((entityType: EntityType) => {
+    if (!entityType) {
+      return of(null);
+    }
+    return listComponentRendered();
+  }),
+).subscribe(listComponentElement => {
+  if (listComponentElement) {
+    const comp = ComponentUtils.getComponentFromElement(listComponentElement);
+    const deleteOverride = async () => {
+      const hoveredItem = comp['hoveredItem'];
+      const entityType = comp['Type'];
+      const classType = comp['types'][entityType].Type;
+      const entity = await firstValueFrom(comp['httpService'].getOne(hoveredItem.Id, classType));
+      dispatchEntityEvent(entityType as EntityType, entity as ConfigurationEntity, null);
+    };
+    ComponentUtils.extendMethodAsync(comp, 'deleteItem', deleteOverride);
+  }
+  
+});
 
+
+
+function dispatchEntityEvent(entityType: EntityType, oldEntity: ConfigurationEntity, newEntity: ConfigurationEntity): void {
+  document.dispatchEvent(
+    new CustomEvent<EntityChangeEvent>('entity-changed', { detail: { oldEntity: oldEntity, newEntity: newEntity, entityType: entityType } })
+  );
 }
+
 
 function matchesEntityList(): string[] {
   return window.location.pathname.match(/config\/()/)

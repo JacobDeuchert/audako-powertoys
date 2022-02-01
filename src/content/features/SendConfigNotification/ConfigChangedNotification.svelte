@@ -23,7 +23,7 @@
   let snackbarWithAction: SnackbarComponentDev;
 
   document.addEventListener('entity-changed', async (changeEvent: CustomEvent<EntityChangeEvent>) => {
-    console.log('Entitychanged');
+    console.log('Entitychanged', changeEvent);
     const oldEntity = changeEvent.detail.oldEntity;
     const newEntity = changeEvent.detail.newEntity;
 
