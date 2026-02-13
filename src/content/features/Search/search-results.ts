@@ -1,6 +1,5 @@
-
-import { SvelteComponent, SvelteComponentTyped } from 'svelte';
-import { EntityType } from '../../../models/configuration-entity';
+import type { Component } from 'svelte';
+import { EntityType } from 'audako-core-components';
 
 
 export type CategorySearchResult = {category: SearchCategory, results: SearchResult[]};
@@ -23,7 +22,7 @@ export interface SearchResult {
    extraActions?: ResultAction[];
 
    // optional component displaying at the end of the result entry
-   infoComponent?: {component: new (options) => SvelteComponent, props: Record<string, any>};
+   infoComponent?: {component: Component, props: Record<string, any>};
 }
 
 

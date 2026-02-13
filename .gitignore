@@ -1,3 +1,24 @@
+# Dependencies
 **/node_modules
 node_modules
+
+# Build outputs
 **/build
+dist/build
+
+# Development
+.vite
+*.log
+*.local
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

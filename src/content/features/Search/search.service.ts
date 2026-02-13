@@ -1,20 +1,13 @@
-import { BehaviorSubject, filter, firstValueFrom, from, Subject } from 'rxjs';
-import { ConfigurationEntity, EntityType } from '../../../models/configuration-entity';
-import { Group } from '../../../models/group';
-import { TenantView } from '../../../models/tenant-view';
-import { StorageUtils } from '../../../utils/storage-utils';
+import { BehaviorSubject, filter, firstValueFrom } from 'rxjs';
 import { UrlUtils } from '../../../utils/url-utils';
-import { HttpService } from '../../../services/http.service';
-import { SignalRService } from '../../../services/signalR.service';
-import { IndexedTenant } from './search-requisites';
-import { CategorizedSearchResults, ResultAction, SearchCategory, SearchResult } from './search-results';
+import { CategorizedSearchResults, SearchCategory, SearchResult } from './search-results';
 import { SearchQuery } from './SearchQueries/search-query';
 import { TenantQuery } from './SearchQueries/tenant-query';
-import { TenantIndexer } from './tenant-indexer';
 import { GroupQuery } from './SearchQueries/group-query';
 import { GenericEntityQuery } from './SearchQueries/generic-entity-query';
 import { AudakoApp } from '../../../models/audako-apps';
 import { SignalQuery } from './SearchQueries/signal-query';
+import { EntityType } from 'audako-core-components';
 
 
 export class SearchService {
@@ -31,12 +24,9 @@ export class SearchService {
     
     private _searchInitialized$: BehaviorSubject<boolean>;
 
-    private tenantIndexer: TenantIndexer;
-
     private categorieQueries: {[cat in SearchCategory]?: SearchQuery};
 
-    constructor(private httpService: HttpService, private signalRService: SignalRService) {
-
+    constructor() {
       this._searchInitialized$ = new BehaviorSubject<boolean>(false);
 
       this._searchRegex = new RegExp('(>)?([A-Z]:)?(.*)', 'i');
@@ -55,9 +45,8 @@ export class SearchService {
       const tenantRestriction: string = tenantRestrictedSearch ? UrlUtils.getTenantIdFromUrl(window.location.pathname) : undefined;
       const categoryRestriction: string = searchMatches[2];
 
-      const searchTerm = searchMatches[3]?.trim();
+      const searchTerm = searchMatches[3]?.trim() ?? '';
 
-      const searchResults = 0;
       const categorizedSearchResults: CategorizedSearchResults = [];
 
       for (let category of this._categoryOrder) {
@@ -101,16 +90,11 @@ export class SearchService {
     }
 
     private async _initSearch(): Promise<void> {
-      const appConfig = await firstValueFrom(this.httpService.getAppConfig());
-      console.log('appConfig', appConfig);
-
-      this.tenantIndexer = new TenantIndexer(this.httpService);
-
       this.categorieQueries = {
-        ['Tenant']: new TenantQuery(this.tenantIndexer, this.httpService),
-        [EntityType.Group]: new GroupQuery(this.tenantIndexer, this.httpService),
-        [EntityType.Dashboard]: new GenericEntityQuery(this.tenantIndexer, this.httpService, EntityType.Dashboard, AudakoApp.Dashboard),
-        [EntityType.Signal]: new SignalQuery(this.tenantIndexer, this.httpService),
+        ['Tenant']: new TenantQuery(),
+        [EntityType.Group]: new GroupQuery(),
+        [EntityType.Dashboard]: new GenericEntityQuery(EntityType.Dashboard, AudakoApp.Dashboard),
+        [EntityType.Signal]: new SignalQuery(),
       };
 
       

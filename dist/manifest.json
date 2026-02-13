@@ -4,19 +4,38 @@
   "version": "1.0",
   "manifest_version": 3,
   "background": {
-    "service_worker": "build/background.js"
+    "service_worker": "build/background.js",
+    "type": "module"
   },
-  "permissions": ["storage", "webRequest", "scripting", "webNavigation", "notifications"],
-  "host_permissions": ["<all_urls>"],
-  "web_accessible_resources": [{
-    "resources": ["build/injected-scripts.js", "build/content.js", "build/content.css"],
-    "matches": ["<all_urls>"]
-  }],
+  "permissions": [
+    "storage",
+    "webRequest",
+    "scripting",
+    "webNavigation",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "build/injected-scripts.js",
+        "build/content.js",
+        "build/content.css",
+        "build/*.woff2"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "build/assets/favicon.png",
-      "32": "build/assets/favicon.png"
+      "16": "assets/favicon.png",
+      "32": "assets/favicon.png"
     }
   }
 }

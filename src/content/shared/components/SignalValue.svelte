@@ -1,35 +1,35 @@
 <script lang="ts">
   import Tooltip, { Wrapper } from '@smui/tooltip';
-  import { afterUpdate, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
 
-  import { Signal, SignalAnalogSettings, SignalDigitalSettings, SignalType } from '../../../models/signal';
-  import dayjs from 'dayjs';
-  import 'dayjs/locale/de';
-  import { SignalLiveValue } from '../../../services/signalR.service';
+  import { DateTime } from 'luxon';
+  import type { SignalLiveValue } from 'audako-core-components';
   import { ColorUtils } from '../../../utils/color-utils';
-  import { isObservable, Observable, Subscription } from 'rxjs';
+  import type { Observable, Subscription } from 'rxjs';
+  import { isObservable } from 'rxjs';
   import { SignalUtils } from '../../../utils/signal-utils';
+  import { Signal, SignalAnalogSettings, SignalDigitalSettings } from 'audako-core-components';
 
-  export let signal: Signal;
-  export let signalValue: SignalLiveValue | Observable<SignalLiveValue>;
-  export let displayTimestamp: boolean = false;
+  let { signal, signalValue, displayTimestamp = false }: { signal: Signal; signalValue: SignalLiveValue | Observable<SignalLiveValue>; displayTimestamp?: boolean } = $props();
 
-  let stringValue: string;
-  let boolValue: boolean;
-  let noValue: boolean = true;
+  let stringValue = $state<string>('');
+  let boolValue = $state<boolean>(false);
+  let noValue = $state<boolean>(true);
 
-  let timestamp: string;
+  let timestamp = $state<string>('');
 
-  let tooltip: string;
+  let tooltip = $state<string>('');
 
-  let ledStyle = {
+  let ledStyle = $state({
     'led-color': null,
     'led-light-color': null,
-  };
+  });
 
   let valueSubscription: Subscription;
 
-  afterUpdate(() => {
+  const timestampFormat = 'dd.MM.yyyy HH:mm:ss';
+
+  $effect(() => {
     if (isObservable(signalValue)) {
       valueSubscription?.unsubscribe();
       valueSubscription = signalValue.subscribe((value) => {
@@ -38,13 +38,13 @@
     } else {
       displaySignalValue(signal, signalValue);
     }
-  });
 
-  onDestroy(() => {
-    if (valueSubscription) {
-      valueSubscription.unsubscribe();
-    }
-    console.log("onDestroy");
+    return () => {
+      if (valueSubscription) {
+        valueSubscription.unsubscribe();
+      }
+      console.log("cleanup");
+    };
   });
 
   function displaySignalValue(signal: Signal, signalValue: SignalLiveValue): void {
@@ -53,7 +53,7 @@
 
     if (noValue) return;
 
-    timestamp = dayjs(signalValue.timestamp).locale('de').format('DD.MM.YYYY HH:mm:ss');
+    timestamp = formatTimestamp(signalValue.timestamp);
 
     createTooltip(signal, signalValue);
 
@@ -67,7 +67,7 @@
   }
 
   function displayAnalogValue(signal: Signal, signalValue: SignalLiveValue): void {
-    tooltip = dayjs(signalValue.timestamp).locale('de').format('DD.MM.YYYY HH:mm:ss');
+    tooltip = formatTimestamp(signalValue.timestamp);
 
     const analogSettings = signal.Settings as SignalAnalogSettings;
     
@@ -99,10 +99,22 @@
     }
   }
 
+  function formatTimestamp(value: Date | string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    const dateTime = value instanceof Date
+      ? DateTime.fromJSDate(value)
+      : typeof value === 'number'
+        ? DateTime.fromMillis(value)
+        : DateTime.fromISO(value);
+    return dateTime.setLocale('de').toFormat(timestampFormat);
+  }
+
   
-  $: cssLedStyle = Object.entries(ledStyle)
+  let cssLedStyle = $derived(Object.entries(ledStyle)
     .map(([key, value]) => `--${key}:${value}`)
-    .join(';');
+    .join(';'));
 </script>
 
 <main>
@@ -110,13 +122,13 @@
     <Wrapper>
       <div style="display: flex">
       {#if noValue}
-        <i class="fas fa-exclamation-triangle" />
+        <i class="fas fa-exclamation-triangle"></i>
       {:else}
       
         {#if SignalUtils.isAnalog(signal) || SignalUtils.isCounter(signal)}
             <p class="signal-value">{stringValue}</p>
         {:else if SignalUtils.isDigital(signal)}
-          <div class="led" style={cssLedStyle} />
+          <div class="led" style={cssLedStyle}></div>
         {:else}
           <p class="signal-value">{stringValue}</p>
         {/if}

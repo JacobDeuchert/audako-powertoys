@@ -1,106 +1,107 @@
-import { catchError, firstValueFrom, from, map, Observable, of, Subscription, switchMap, tap, timer } from 'rxjs';
 import { AppConfig } from '../models/app.config';
 import { SystemSettings } from '../models/extension-settings';
-import { CombinedHealthCheckResponse, HealthCheckResponse } from '../models/health-check-response';
+import { HealthCheckResponse } from '../models/health-check-response';
 import { SystemStatus } from '../models/system-status';
 import { NotificationUtils } from '../utils/notification-utils';
 import { StorageUtils } from '../utils/storage-utils';
 
-export class HealthCheckService {
+type SystemStats = Record<string, SystemStatus>;
 
-  private _systemStats: {[url: string]: SystemStatus};
+const ALARM_PREFIX = 'healthcheck_';
+const CHECK_INTERVAL_MINUTES = 1;
 
-  private _healthCheckSubscriptions: {[url: string]: Subscription};
+let systemStats: SystemStats = {};
 
-  constructor() {
-    this._systemStats = {};
-    this._healthCheckSubscriptions = {};
-  }
+const loadSystemStats = async (): Promise<SystemStats> => {
+    systemStats = (await StorageUtils.getSystemStats()) ?? {};
+    return systemStats;
+};
 
-  public async observeSystemsHealth(systems: SystemSettings[]): Promise<void> {
-    console.log("Observing systems", systems);
-    this._systemStats = await StorageUtils.getSystemStats() ?? {};
+const syncStatsToStorage = () => StorageUtils.setSystemStats(systemStats);
 
-    // unsubscribe from all healthchecks for deleted systems
-    const deletedSystems = Object.keys(this._healthCheckSubscriptions).filter(url => !systems.some(system => system.url === url))
+const requestAppConfig = async (baseUrl: string): Promise<AppConfig> => {
+    const response = await fetch(`${baseUrl}/assets/conf/application.config`, { cache: 'no-cache' });
 
-    deletedSystems.forEach(url=> {
-      delete this._systemStats[url];
-      const subscription = this._healthCheckSubscriptions[url];
-      subscription?.unsubscribe();
-    });
+    if (response.status !== 200) {
+        throw new Error(response.status.toString());
+    }
 
+    return response.json();
+};
 
-    systems.forEach(system => {
-      if (!this._healthCheckSubscriptions[system.url]) {
-        if (system.rh) {
-          this._healthCheckSubscriptions[system.url] = this.observeRichHealthChecks(system.url);
+export const observeSystemsHealth = async (systems: SystemSettings[]): Promise<void> => {
+    console.log('Observing systems', systems);
+    await loadSystemStats();
+
+    const existingAlarms = await chrome.alarms.getAll();
+    const healthCheckAlarms = existingAlarms.filter((alarm) => alarm.name.startsWith(ALARM_PREFIX));
+
+    const systemUrls = systems.map((s) => s.url);
+    for (const alarm of healthCheckAlarms) {
+        const url = alarm.name.replace(ALARM_PREFIX, '');
+        if (!systemUrls.includes(url)) {
+            await chrome.alarms.clear(alarm.name);
+            delete systemStats[url];
         }
-        this._healthCheckSubscriptions[system.url] = this.observeWebsiteHealth(system);  
-      }
-    });
-
-    this._syncStatsToStorage();
-  }
-  
-  public observeWebsiteHealth(system: SystemSettings): Subscription {
-
-    if (!this._systemStats[system.url]) {
-      this._systemStats[system.url] = {
-        healthy: true 
-      };
     }
 
-    const websiteReachable$ = () => from(this._requestAppConfig(system.url)).pipe(
-      map(() => true),
-      catchError(() => of(false))      
-    );
+    for (const system of systems) {
+        const alarmName = ALARM_PREFIX + system.url;
+        const existingAlarm = await chrome.alarms.get(alarmName);
 
-    return timer(0, 10000).pipe(
-      switchMap(() => websiteReachable$()),
-    ).subscribe(healthy => {
-      
-      const lastStatus = this._systemStats[system.url];
+        if (!existingAlarm) {
+            if (!systemStats[system.url]) {
+                systemStats[system.url] = { healthy: true };
+            }
 
-      // do nothing if status has not changed
-      if (healthy === lastStatus.healthy) {
-        return;
-      }
+            await chrome.alarms.create(alarmName, {
+                delayInMinutes: 0,
+                periodInMinutes: CHECK_INTERVAL_MINUTES,
+            });
 
-      if (!healthy) {
-        console.log('Healthy', healthy);
-        NotificationUtils.showErrorNotification(`System: ${new URL(system.url)} not reachable`);
-      }
+            console.log(`Created health check alarm for ${system.url}`);
+        }
+    }
 
-      this._systemStats[system.url] = {
-        healthy: healthy
-      };
-      this._syncStatsToStorage()
-    });
-  }
+    syncStatsToStorage();
+};
 
-  public observeRichHealthChecks(systemUrl: string): Subscription {
-    return of(null).subscribe();
-  }
+export const checkSystemHealth = async (systemUrl: string): Promise<void> => {
+    console.log('Checking health for:', systemUrl);
 
-  public async getHealthChecInformation<T>(): Promise<HealthCheckResponse<T>> {
+    await loadSystemStats();
+
+    if (!systemStats[systemUrl]) {
+        systemStats[systemUrl] = { healthy: true };
+    }
+
+    try {
+        await requestAppConfig(systemUrl);
+        const healthy = true;
+        const lastStatus = systemStats[systemUrl];
+
+        if (healthy !== lastStatus.healthy) {
+            systemStats[systemUrl] = { healthy };
+            syncStatsToStorage();
+        }
+    } catch (error) {
+        const healthy = false;
+        const lastStatus = systemStats[systemUrl];
+
+        if (healthy !== lastStatus.healthy) {
+            console.log('System unhealthy:', systemUrl);
+            NotificationUtils.showErrorNotification(`System: ${new URL(systemUrl).hostname} not reachable`);
+            systemStats[systemUrl] = { healthy };
+            syncStatsToStorage();
+        }
+    }
+};
+
+export const checkRichHealthCheck = async (systemUrl: string): Promise<void> => {
+    console.log('Rich health check not yet implemented for:', systemUrl);
+};
+
+export const getHealthChecInformation = async <T>(): Promise<HealthCheckResponse<T>> => {
+    // TODO: implement when a consumer is available
     return null;
-  }
-
-  private _syncStatsToStorage(): void {
-    StorageUtils.setSystemStats(this._systemStats);
-  }
-
-  private async _requestAppConfig(baseUrl: string): Promise<AppConfig> {
-        
-    const response = await fetch(`${baseUrl}/assets/conf/application.config`, {cache: 'no-cache'});
-  
-    if (response.status != 200) {
-      throw new Error(response.status.toString());
-    }
-
-    return await response.json();
-  }
-
-
-}
+};

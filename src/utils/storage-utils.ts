@@ -1,5 +1,4 @@
 import { BehaviorSubject, combineLatest, concat, from, Observable, Subject } from 'rxjs';
-import { SearchRequisites } from '../content/features/Search/search-requisites';
 import { FeatureSettings, NotificationSettings, SystemSettings } from '../models/extension-settings';
 import { SystemStatus } from '../models/system-status';
 
@@ -12,11 +11,12 @@ export class StorageUtils {
     if (storageEntry && Array.isArray(storageEntry.registeredSystems)) {
       return storageEntry.registeredSystems
     }
-    await this.setRegisterdSystemSettings([]);
+    await StorageUtils.setRegisteredSystemSettings([]);
     return [];
   }
 
-  public static async setRegisterdSystemSettings(registeredSystems: SystemSettings[]): Promise<void> {
+  public static async setRegisteredSystemSettings(registeredSystems: SystemSettings[]): Promise<void> {
+    console.log('Setting registered systems:', registeredSystems);
     await chrome.storage.sync.set({registeredSystems: registeredSystems});
   }
 
@@ -26,7 +26,7 @@ export class StorageUtils {
     if (storageEntry) {
       return storageEntry.systemStats;
     }
-    await this.setSystemStats({});
+    await StorageUtils.setSystemStats({});
     return {}
   }
 
@@ -68,15 +68,6 @@ export class StorageUtils {
 
   public static async setNotificationSettings(notifiactionSettings: NotificationSettings): Promise<void> {
     await chrome.storage.sync.set({notifiactionSettings: notifiactionSettings});
-  }
-
-  public static async getSearchRequisites(systemUrl: string): Promise<SearchRequisites> {
-    const storageEntry = await chrome.storage.local.get(`${systemUrl}_searchrequisites`) as {[p: string]: SearchRequisites};
-    return storageEntry[`${systemUrl}_searchrequisites`];
-  }
-
-  public static async setSearchRequisites(systemUrl: string, searchRequisites: SearchRequisites): Promise<void> {
-    await chrome.storage.local.set({[`${systemUrl}_searchrequisites`]: searchRequisites});
   }
 
 }

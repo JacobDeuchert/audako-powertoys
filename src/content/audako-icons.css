@@ -1,0 +1,239 @@
+[data-icon]:before {
+  font-family: 'audako', sans-serif !important;
+  content: attr(data-icon);
+  font-style: normal !important;
+  font-weight: normal !important;
+  font-variant: normal !important;
+  text-transform: none !important;
+  speak: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[class^='adk-']:before,
+[class*=' adk-']:before {
+  font-family: 'audako', sans-serif !important;
+  font-style: normal !important;
+  font-weight: normal !important;
+  font-variant: normal !important;
+  text-transform: none !important;
+  speak: none;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.adk-an-in:before {
+  content: '\61';
+}
+.adk-an-out:before {
+  content: '\62';
+}
+.adk-c-eye:before {
+  content: '\63';
+}
+.adk-c-pencil:before {
+  content: '\64';
+}
+.adk-ct:before {
+  content: '\65';
+}
+.adk-dat-src:before {
+  content: '\66';
+}
+.adk-di-in:before {
+  content: '\67';
+}
+.adk-di-out:before {
+  content: '\68';
+}
+.adk-fill-lvl:before {
+  content: '\69';
+}
+.adk-flow-rate:before {
+  content: '\6a';
+}
+.adk-grp:before {
+  content: '\6b';
+}
+.adk-tb:before {
+  content: '\6d';
+}
+.adk-temp:before {
+  content: '\6e';
+}
+.adk-w-temp:before {
+  content: '\6f';
+}
+.adk-fld-grp:before {
+  content: '\70';
+}
+.adk-fola:before {
+  content: '\71';
+}
+.adk-avg:before {
+  content: '\72';
+}
+.adk-max:before {
+  content: '\73';
+}
+.adk-max-2:before {
+  content: '\74';
+}
+.adk-min:before {
+  content: '\75';
+}
+.adk-min-2:before {
+  content: '\76';
+}
+.adk-sum:before {
+  content: '\77';
+}
+.adk-rec-grp:before {
+  content: '\78';
+}
+.adk-rec-grp-slh:before {
+  content: '\79';
+}
+.adk-envelope-received:before {
+  content: '\42';
+}
+.adk-envelope-received-check:before {
+  content: '\43';
+}
+.adk-envelope-slh:before {
+  content: '\44';
+}
+.adk-bell-o-clock:before {
+  content: '\41';
+}
+.adk-b-pencil:before {
+  content: '\45';
+}
+.adk-plant:before {
+  content: '\47';
+}
+.adk-hb:before {
+  content: '\48';
+}
+.adk-hand-in:before {
+  content: '\6c';
+}
+.adk-s-user:before {
+  content: '\49';
+}
+.adk-s-user-o:before {
+  content: '\4a';
+}
+.adk-overview:before {
+  content: '\4b';
+}
+.adk-overview-o:before {
+  content: '\4c';
+}
+.adk-overview-sm:before {
+  content: '\4d';
+}
+.adk-overview-o-sm:before {
+  content: '\4e';
+}
+.adk-timestamp:before {
+  content: '\4f';
+}
+.adk-diagnosis:before {
+  content: '\50';
+}
+.adk-tool:before {
+  content: '\51';
+}
+.adk-twitter:before {
+  content: '\52';
+}
+.adk-www:before {
+  content: '\53';
+}
+.adk-youtube:before {
+  content: '\54';
+}
+.adk-license:before {
+  content: '\55';
+}
+.adk-address:before {
+  content: '\56';
+}
+.adk-datalink:before {
+  content: '\57';
+}
+.adk-info:before {
+  content: '\58';
+}
+.adk-schedule:before {
+  content: '\59';
+}
+.adk-schedule-time:before {
+  content: '\5a';
+}
+.adk-uni-in:before {
+  content: '\30';
+}
+.adk-uni-out:before {
+  content: '\31';
+}
+.adk-chg-pw:before {
+  content: '\46';
+}
+.adk-calendar-day:before {
+  content: '\32';
+}
+.adk-calendar-week:before {
+  content: '\33';
+}
+.adk-calendar-month:before {
+  content: '\34';
+}
+.adk-calendar-year:before {
+  content: '\35';
+}
+.adk-calendar-quarter:before {
+  content: '\36';
+}
+.adk-dashboard:before {
+  content: '\37';
+}
+.adk-state-change:before {
+  content: '\7a';
+}
+.adk-street-view-slh:before {
+  content: '\38';
+}
+.adk-state-change-o:before {
+  content: '\39';
+}
+.adk-mgr-assignment:before {
+  content: '\21';
+}
+.adk-staff-assignment:before {
+  content: '\22';
+}
+.adk-route-card:before {
+  content: '\23';
+}
+.adk-fork:before {
+  content: '\24';
+}
+.adk-merge:before {
+  content: '\25';
+}
+.adk-time-rec:before {
+  content: '\26';
+}
+.adk-set-val:before {
+  content: '\27';
+}
+.adk-set-value:before {
+  content: '\28';
+}
+.adk-drive-val:before {
+  content: '\29';
+}

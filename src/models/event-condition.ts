@@ -1,4 +1,4 @@
-import { ConfigurationEntity, Field } from './configuration-entity';
+import { ConfigurationEntity, Field } from 'audako-core-components';
 
 export class EventCondition extends ConfigurationEntity {
   public Settings: ConditionSettings; 

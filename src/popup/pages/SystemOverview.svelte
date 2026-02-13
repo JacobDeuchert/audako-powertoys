@@ -5,22 +5,18 @@
   import { Icon } from '@smui/common';
   import Ripple from '@smui/ripple';
   import SystemEntry from '../components/SystemEntry.svelte';
-  import {
-    ExtensionMessage,
-    MessageType,
-  } from '../../models/extension-message';
 
   import { StorageUtils } from '../../utils/storage-utils';
-  import { SystemSettings } from '../../models/extension-settings';
-  import { HttpService } from '../../services/http.service';
-  import { SystemStatus } from '../../models/system-status';
+  import type { SystemSettings } from '../../models/extension-settings';
+  import { BaseHttpService } from 'audako-core-components';
+  import type { SystemStatus } from '../../models/system-status';
 
-  let search = '';
+  let search = $state<string>('');
 
-  let systemSettings: SystemSettings[] = [];
-  let systemStats: { [url: string]: SystemStatus } = {};
+  let systemSettings = $state<SystemSettings[]>([]);
+  let systemStats = $state<{ [url: string]: SystemStatus }>({});
 
-  let showUnknwonSystemHint: boolean = false;
+  let showUnknownSystemHint = $state<boolean>(false);
 
   async function registerSystem(): Promise<void> {
     console.log('Add to known urls');
@@ -35,7 +31,7 @@
       const url = new URL(activeTab.url);
 
       // check if system is not already registered
-      if (systemSettings.some(x => x.url === url.origin)) {
+      if (systemSettings.some((x) => x.url === url.origin)) {
         console.log('System already registered');
         return;
       }
@@ -45,12 +41,12 @@
         ft: true,
         url: url.origin,
         al: null,
-        rh: false
-      }
+        rh: false,
+      };
 
       systemSettings = [...systemSettings, newSystemEntry];
-      showUnknwonSystemHint = false;
-      StorageUtils.setRegisterdSystemSettings(systemSettings);
+      showUnknownSystemHint = false;
+      StorageUtils.setRegisteredSystemSettings($state.snapshot(systemSettings));
     } catch (e) {
       console.log('Failed to register new system: ' + e);
     }
@@ -63,35 +59,36 @@
       const url = new URL(activeTab.url);
 
       if (!systemSettings.some((x) => x.url === url.origin)) {
-        const httpService = new HttpService(url.origin);
-        httpService.getAppConfig().subscribe({
-          next: () => (showUnknwonSystemHint = true),
-          error: () => (showUnknwonSystemHint = false),
-        });
+        try {
+          await BaseHttpService.requestHttpConfig(url.origin);
+          showUnknownSystemHint = true;
+        } catch (error) {
+          showUnknownSystemHint = false;
+        }
       }
     } catch (e) {}
   }
 
   async function onDeleteSystem(system: SystemSettings): Promise<void> {
-      const index = systemSettings.findIndex(x => x.url === system.url);
-      systemSettings.splice(index, 1);
-      systemSettings = [...systemSettings];
-      StorageUtils.setRegisterdSystemSettings(systemSettings);
+    const index = systemSettings.findIndex((x) => x.url === system.url);
+    systemSettings.splice(index, 1);
+    systemSettings = [...systemSettings];
+    StorageUtils.setRegisteredSystemSettings(systemSettings);
   }
 
   async function openSystem(system: SystemSettings): Promise<void> {
     chrome.tabs.create({
       active: true,
-      url: system.url
-    })
+      url: system.url,
+    });
   }
 
   async function init(): Promise<void> {
     systemSettings = await StorageUtils.getRegisteredSystemSettings();
     await checkForAudakoSystem();
-    StorageUtils.listenForStatusChanges().subscribe(x => {
+    StorageUtils.listenForStatusChanges().subscribe((x) => {
       console.log('Status changed: ', x);
-      
+
       systemStats = x;
     });
   }
@@ -105,30 +102,27 @@
       <Icon class="material-icons">search</Icon>
       <Input class="search-input solo-input" placeholder="Search" />
     </div>
-    <IconButton
-      class="material-icons settings-btn"
-      on:click={() => registerSystem()}
-    >
-      settings
-    </IconButton>
+    <IconButton class="material-icons settings-btn" onclick={() => registerSystem()}>settings</IconButton>
   </div>
 
-  {#if showUnknwonSystemHint}
+  {#if showUnknownSystemHint}
     <div class="unknown-system-container">
       <Icon class="material-icons">info</Icon>
-      <div style="margin-left: 8px; margin-right: auto">
-        Extension is not enabled on this system
-      </div>
-      <Button on:click={() => registerSystem()}>
+      <div style="margin-left: 8px; margin-right: auto">Extension is not enabled on this system</div>
+      <Button onclick={() => registerSystem()}>
         <Label style="font-weight: bold">Enable</Label>
       </Button>
     </div>
   {/if}
   <div class="system-list">
     {#each systemSettings as system}
-      <div class="system-entry" on:click="{() => openSystem(system)}">
-        <div class="ripple" use:Ripple={{ surface: true, color: 'primary' }} />
-        <SystemEntry systemStatus={systemStats[system.url]} systemSettings={system} on:delete={() => onDeleteSystem(system)} />
+      <div class="system-entry" onclick={() => openSystem(system)}>
+        <div class="ripple" use:Ripple={{ surface: true, color: 'primary' }}></div>
+        <SystemEntry
+          systemStatus={systemStats[system.url]}
+          systemSettings={system}
+          ondelete={() => onDeleteSystem(system)}
+        />
       </div>
     {/each}
   </div>

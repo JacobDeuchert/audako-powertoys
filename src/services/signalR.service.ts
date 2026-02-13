@@ -2,7 +2,7 @@ import { concat, filter, map, Observable, of, Subject } from 'rxjs';
 import * as signalR from '@aspnet/signalr';
 import { singleton } from 'tsyringe';
 import { AppConfig } from '../models/app.config';
-import { Signal, SignalType } from '../models/signal';
+import { Signal, SignalType } from 'audako-core-components';
 
 export type SignalLiveValue= {
   identifier: string;

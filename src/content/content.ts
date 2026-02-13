@@ -1,43 +1,106 @@
 import './global.css';
+import '../../node_modules/svelte-material-ui/themes/svelte.css';
 // import for tsyringe
 import 'reflect-metadata';
 // @ts-ignore
 import App from './App.svelte';
-import { container, registry } from 'tsyringe';
-import { HttpService } from '../services/http.service';
-import { StorageUtils } from '../utils/storage-utils';
+import { container } from 'tsyringe';
 import { EntityConfigurationHelper } from './shared/helpers/entity-configuration-helper';
+import { mount } from 'svelte';
+import { BaseHttpService, registerCoreServices, setGlobalDependencyContainer } from 'audako-core-components';
+
+const SHADOW_HOST_ID = 'audako-powertoys-shadow-host';
+const APP_ROOT_ID = 'audako-powertoys-root';
+const STYLESHEET_MARKER = 'audako-powertoys-styles';
+
+function ensureShadowRoot(): ShadowRoot | null {
+  const parent = document.body ?? document.documentElement;
+  if (!parent) {
+    return null;
+  }
+
+  let host = document.getElementById(SHADOW_HOST_ID);
+  if (!host) {
+    host = document.createElement('div');
+    host.id = SHADOW_HOST_ID;
+    host.style.all = 'initial';
+    parent.appendChild(host);
+  }
+
+  return host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+}
+
+function ensureShadowStyles(shadowRoot: ShadowRoot): void {
+  const existingStyles = shadowRoot.querySelector(`link[data-${STYLESHEET_MARKER}]`);
+  if (existingStyles) {
+    return;
+  }
+
+  const stylesLink = document.createElement('link');
+  stylesLink.rel = 'stylesheet';
+  stylesLink.href = chrome.runtime.getURL('build/content.css');
+  stylesLink.setAttribute(`data-${STYLESHEET_MARKER}`, 'true');
+
+  shadowRoot.appendChild(stylesLink);
+}
+
+function ensureMountTarget(shadowRoot: ShadowRoot): HTMLElement {
+  let target = shadowRoot.getElementById(APP_ROOT_ID);
+  if (!target) {
+    target = document.createElement('div');
+    target.id = APP_ROOT_ID;
+    shadowRoot.appendChild(target);
+  }
+
+  return target;
+}
 
 let app = null;
 
-// check if another instance of audako-powertoys is running
-if (!window['audako-powertoys']) {
-	window['audako-powertoys'] = true;
+async function initialize() {
+  // check if another instance of audako-powertoys is running
+  if (!window['audako-powertoys']) {
+    window['audako-powertoys'] = true;
+  }
 
-	container.register<HttpService>(HttpService, {useValue: new HttpService()});
-		
-	injectScript('build/injected-scripts.js');
-	
-	app = new App({
-		target: document.body,
-		props: {
-			name: 'world'
-		}
-	});
+  const config =await BaseHttpService.requestHttpConfig(window.location.origin);
 
-	const configHelper = new EntityConfigurationHelper();
-	configHelper.listenForConfigChanges();
-	
-	
-	
-	function injectScript(scriptUrl) {
-		const script = document.createElement('script');
-		script.src = chrome.runtime.getURL(scriptUrl);
-		(document.head || document.documentElement).appendChild(script);
-	}
+  setGlobalDependencyContainer(container);
+
+  registerCoreServices(config, localStorage.getItem('access_token') || '');
+
+  console.info(container);
+
+  injectScript('build/injected-scripts.js');
+
+  setTimeout(() => {
+    const shadowRoot = ensureShadowRoot();
+    if (!shadowRoot) {
+      return;
+    }
+
+    ensureShadowStyles(shadowRoot);
+
+    app = mount(App, {
+      target: ensureMountTarget(shadowRoot),
+    });
+  }, 1000);
+
+  const configHelper = new EntityConfigurationHelper();
+  configHelper.listenForConfigChanges();
 }
+
+function injectScript(scriptUrl) {
+  const script = document.createElement('script');
+  script.src = chrome.runtime.getURL(scriptUrl);
+  (document.head || document.documentElement).appendChild(script);
+}
+
+
+initialize();
 
 export default app;
 
-setTimeout(() => console.log = console.info, 1000);
-
+setTimeout(() => {
+  console.log = console.info;
+}, 1000);

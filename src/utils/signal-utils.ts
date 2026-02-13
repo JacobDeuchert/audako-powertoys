@@ -1,4 +1,4 @@
-import { Signal, SignalType } from '../models/signal';
+import { Signal, SignalType } from 'audako-core-components';
 
 export class SignalUtils {
 

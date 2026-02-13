@@ -1,11 +1,10 @@
 import { filter, map, Observable, timer } from 'rxjs';
 import { AudakoApp } from '../models/audako-apps';
-import { EntityType } from '../models/configuration-entity';
+import { EntityType } from 'audako-core-components';
 export class UrlUtils {
   private static appRouteMapping: { [key: string]: AudakoApp } = {
     config: AudakoApp.Configuration,
     application: AudakoApp.Dashboard,
-    commissioning: AudakoApp.Commissioning,
   };
 
   public static openApp(
@@ -28,9 +27,6 @@ export class UrlUtils {
         if (detailId && detailType) {
           url += `/${detailId}/${detailType}`;
         }
-        break;
-      case AudakoApp.Commissioning:
-        url = `/${tenantId}/commissioning/${groupId ?? ''}`;
         break;
       case AudakoApp.Administration:
         url = `administration/${tenantId}`;
@@ -77,6 +73,18 @@ export class UrlUtils {
     return url;
   }
 
+  public static getGroupIdFromUrl(url: string): string {
+    const app = this.getAppFromUrl(url);
+    if (!app) {
+      return null;
+    }
+    const matchResults = url.match(/(.{24})\/(application|config)\/(.{24})/);
+    if (!matchResults) {
+      return null;
+    }
+    return matchResults[3];
+  }
+
   public static subscribeToUrl(): Observable<string> {
     let currentLocation = null;
     return timer(0, 50).pipe(
@@ -94,7 +102,7 @@ export class UrlUtils {
       [AudakoApp.Administration]: 'administration',
       [AudakoApp.Configuration]: 'config',
       [AudakoApp.Dashboard]: 'application',
-      [AudakoApp.Commissioning]: 'commissioning',
+      [AudakoApp.Maintenance]: 'maintenance',
     };
 
     return currentLocation.includes(appUrl[app]);

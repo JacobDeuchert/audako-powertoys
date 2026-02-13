@@ -1,6 +1,7 @@
+@import './audako-icons.css';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
 
-@import url('./../../node_modules/svelte-material-ui/bare.css');
-
+:host,
 body {
   --mdc-theme-primary: var(--primary);
   --mdc-theme-secondary: var(--secondary);
@@ -38,7 +39,7 @@ body {
 }
 
 .material-icons {
-  font-family: 'Material Icons';
+  font-family: 'Material Icons', sans-serif;
   font-weight: normal;
   font-style: normal;
   font-size: 24px;  /* Preferred icon size */

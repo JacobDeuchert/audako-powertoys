@@ -1,9 +1,8 @@
 import { delay, distinctUntilChanged, filter, finalize, first, firstValueFrom, isObservable, map, Observable, of, switchMap, tap } from 'rxjs';
-import { ConfigurationEntity, EntityType } from '../../../models/configuration-entity';
+import { ConfigurationEntity, EntityType } from 'audako-core-components';
 import { ComponentUtils } from '../../../utils/component-utils';
 import { DomUtils } from '../../../utils/dom-utils';
 import { UrlUtils } from '../../../utils/url-utils';
-import { EntityChangeEvent } from '../../features/SendConfigNotification/entity-event';
 
 
 const detailComponentRendered = () => {
@@ -77,7 +76,7 @@ UrlUtils.subscribeToUrl().pipe(
 
 function dispatchEntityEvent(entityType: EntityType, oldEntity: ConfigurationEntity, newEntity: ConfigurationEntity): void {
   document.dispatchEvent(
-    new CustomEvent<EntityChangeEvent>('entity-changed', { detail: { oldEntity: oldEntity, newEntity: newEntity, entityType: entityType } })
+    new CustomEvent<any>('entity-changed', { detail: { oldEntity: oldEntity, newEntity: newEntity, entityType: entityType } })
   );
 }
 

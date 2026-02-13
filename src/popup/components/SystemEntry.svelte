@@ -1,29 +1,16 @@
 <script lang="ts">
-  import { SystemSettings } from '../../models/extension-settings';
+  import type { SystemSettings } from '../../models/extension-settings';
   import  IconButton from '@smui/icon-button';
-  import Menu, { MenuComponentDev } from '@smui/menu';
+  import Menu from '@smui/menu';
   import List, { Item, Separator, Text, Graphic } from '@smui/list';
-import { afterUpdate, beforeUpdate, createEventDispatcher } from 'svelte';
-import { SystemStatus } from '../../models/system-status';
+  import type { SystemStatus } from '../../models/system-status';
 
+  let { systemSettings, systemStatus, ondelete }: { systemSettings: SystemSettings; systemStatus: SystemStatus; ondelete?: () => void } = $props();
 
-  export let systemSettings: SystemSettings;
-
-  export let systemStatus: SystemStatus;
-
-  let menu: MenuComponentDev;
+  let menu: any;
   let menuAnchor: any;
 
-  let dispatch = createEventDispatcher();
-
-  let name: string;
-
-  afterUpdate(() => {
-    if (systemSettings) {
-      const url = new URL(systemSettings.url);
-      name = url.host;
-    }
-  });
+  let name = $derived(systemSettings ? new URL(systemSettings.url).host : '');
 
 </script>
 
@@ -35,17 +22,17 @@ import { SystemStatus } from '../../models/system-status';
    {/if}
    <span class="name" >{name}</span>
    <div bind:this={menuAnchor} >
-    <IconButton class="material-icons" on:click={(event) => {event.stopPropagation(); menu.setOpen(true)}}>
+    <IconButton class="material-icons" onclick={(event) => {event.stopPropagation(); menu.setOpen(true)}}>
       more_vert
     </IconButton> 
    </div>
-   <Menu on:click={(event) => event.stopPropagation()} bind:this={menu} anchor={false} bind:anchorElement={menuAnchor}>
+   <Menu onclick={(event) => event.stopPropagation()} bind:this={menu} anchor={false} bind:anchorElement={menuAnchor}>
     <List>
-      <!-- <Item on:SMUI:action={() => {}}>
+      <!-- <Item onSMUIaction={() => {}}>
         <Graphic class="material-icons">edit</Graphic>
         <Text>Edit Name</Text>
       </Item> -->
-      <Item  on:SMUI:action={(event) => dispatch(event, 'toggleFeatures')}>
+      <Item  onSMUIaction={(event) => {}}>
         {#if !!systemSettings?.ft}
         <Graphic class="material-icons">check_box</Graphic>
         {:else }
@@ -53,7 +40,7 @@ import { SystemStatus } from '../../models/system-status';
         {/if}
         <Text>Powertoys</Text>
       </Item>
-      <Item on:SMUI:action={() =>  dispatch('toggleNotifications')}>
+      <Item onSMUIaction={() => {}}>
         {#if !!systemSettings?.nt}
         <Graphic class="material-icons">check_box</Graphic>
         {:else }
@@ -62,7 +49,7 @@ import { SystemStatus } from '../../models/system-status';
         <Text>Notifications</Text>
       </Item>
       <Separator />
-      <Item on:SMUI:action={() => dispatch('delete')}>
+      <Item onSMUIaction={() => ondelete?.()}>
         <Graphic class="material-icons">delete</Graphic>
         <Text>Delete</Text>
       </Item>
