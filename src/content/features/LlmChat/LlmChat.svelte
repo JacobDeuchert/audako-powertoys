@@ -1,7 +1,10 @@
 <script lang="ts">
   import { ChatWidget, OpenCodeAdapter } from '@audako/chat-ui';
+  import { Icon } from '@smui/common';
+  import IconButton from '@smui/icon-button';
   import '@audako/chat-ui/style.css';
-  import { OpenCodeGatewayService as OpenCodeGatewayService } from './audako-mcp-gateway.service';
+  import { ChatSessionGatewayService } from './chat-session-gateway.service';
+  import { ComponentUtils } from '../../../utils/component-utils';
 
   let isOpen = $state(false);
   let hasOpened = $state(false);
@@ -16,18 +19,15 @@
   });
 
   async function setupConfig() {
-    const server = await OpenCodeGatewayService.instance.requestOpencodeServer();
+    const chatSession = await ChatSessionGatewayService.instance.requestChatSession();
 
     const adapter = new OpenCodeAdapter({
-      baseUrl: server.opencodeUrl,
+      baseUrl: chatSession.opencodeUrl,
       agent: 'audako',
     });
 
-    const agents =await adapter.getAgents();
-    console.log('agents', agents);
-
     config = {
-      adapter: adapter,
+      adapter,
       title: 'Assistant',
       initialMessage: 'Hi! How can I help?',
       placeholder: 'Type a message',
@@ -53,8 +53,13 @@
   <section id="audako-llm-chat-panel" class="chat-panel" class:open={isOpen} aria-hidden={!isOpen}>
     {#snippet button()}
     <div class="chat-header">
-      Assistant
-    <button type="button" class="close-button" onclick={closeChat} aria-label="Close chat">x</button>
+      <div class="chat-header-title">
+        <Icon class="material-icons chat-header-icon">smart_toy</Icon>
+        Assistant
+      </div>
+      <IconButton type="button" class="material-icons close-button" onclick={closeChat} aria-label="Close chat">
+        close
+      </IconButton>
     </div>
     {/snippet}
     <div class="chat-content">
@@ -75,7 +80,10 @@
     aria-controls="audako-llm-chat-panel"
     aria-expanded={isOpen}
   >
-    {isOpen ? 'Close chat' : 'Ask AI'}
+    <Icon class="material-icons chat-toggle-icon">
+      {isOpen ? 'close' : 'smart_toy'}
+    </Icon>
+    {isOpen ? 'Close chat' : 'Assistant'}
   </button>
 </div>
 
@@ -88,6 +96,9 @@
   }
 
   .chat-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border: none;
     border-radius: 999px;
     padding: 10px 16px;
@@ -99,12 +110,18 @@
     cursor: pointer;
   }
 
+  .chat-toggle :global(.chat-toggle-icon) {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
   .chat-panel {
     position: fixed;
     right: 16px;
     bottom: 68px;
-    width: min(430px, calc(100vw - 24px));
-    height: 600px;
+    width: min(500px, calc(100vw - 24px));
+    height: 700px;
     border-radius: 14px;
     overflow: hidden;
     background: #fff;
@@ -137,14 +154,22 @@
     font-weight: 700;
   }
 
-  .close-button {
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-    padding: 6px;
-    border-radius: 6px;
+  .chat-header-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chat-header-title :global(.chat-header-icon) {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  :global(.close-button.mdc-icon-button) {
+    --mdc-icon-button-size: 34px;
+    --mdc-icon-size: 18px;
+    color: #4a4a4a;
   }
 
   .chat-content {
