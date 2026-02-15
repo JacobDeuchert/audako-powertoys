@@ -14,6 +14,17 @@ export class UrlUtils {
     detailId?: string,
     detailType?: EntityType
   ): void {
+    const url = UrlUtils.buildAppUrl(app, tenantId, groupId, detailId, detailType);
+    window.location.href = url;
+  }
+
+  public static buildAppUrl(
+    app: AudakoApp,
+    tenantId: string,
+    groupId?: string,
+    detailId?: string,
+    detailType?: EntityType
+  ): string {
     let url = null;
     switch (app) {
       case AudakoApp.Dashboard:
@@ -32,7 +43,7 @@ export class UrlUtils {
         url = `administration/${tenantId}`;
         break;
     }
-    window.location.href = url;
+    return url;
   }
 
   public static getTenantIdFromUrl(url: string): string {

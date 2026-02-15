@@ -12,7 +12,8 @@
     "build:watch": "vite build --watch",
     "build:debug:watch": "vite build --mode debug --watch",
     "preview": "vite preview",
-    "update-core": "npm i https://github.com/JacobDeuchert/audako-core-components"
+    "update-core": "npm i https://github.com/JacobDeuchert/audako-core-components",
+    "update-chat-ui": "npm i ../audako-mcp-gateway/packages/chat-ui"
   },
   "repository": {
     "type": "git",

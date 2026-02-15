@@ -25,6 +25,22 @@ const defaultDeps: ServiceWorkerDeps = {
     checkRichHealthCheck,
 };
 
+const createInjectedScriptInjector =
+    (deps: Pick<ServiceWorkerDeps, 'executeScript'>) =>
+    async (tabId: number): Promise<void> => {
+        try {
+            await deps.executeScript({
+                target: { tabId },
+                files: ['build/injected-scripts.js'],
+                world: 'MAIN' as any,
+                injectImmediately: true,
+            } as any);
+            console.log('Injected scripts into MAIN world for tab', tabId);
+        } catch (error) {
+            console.error('Failed to inject scripts into MAIN world:', error);
+        }
+    };
+
 const createContentInjector =
     (deps: Pick<ServiceWorkerDeps, 'getTab' | 'executeScript'>) =>
     async (tabId?: number): Promise<void> => {
@@ -58,6 +74,22 @@ const createContentInjector =
 
 const findMatchingSystem = (url: string | undefined, systems: SystemSettings[] = []): SystemSettings | undefined =>
     systems.find((system) => url?.includes(system.url));
+
+const createNavigationCommittedHandler =
+    (
+        deps: Pick<ServiceWorkerDeps, 'getRegisteredSystems' | 'executeScript'>,
+        injectInjectedScripts: (tabId: number) => Promise<void>,
+    ) =>
+    async (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails): Promise<void> => {
+        if (details.frameId !== 0) return;
+
+        const registeredSystems = await deps.getRegisteredSystems();
+        const systemSettings = findMatchingSystem(details.url, registeredSystems);
+
+        if (systemSettings?.ft) {
+            await injectInjectedScripts(details.tabId);
+        }
+    };
 
 const createNavigationHandler =
     (
@@ -143,10 +175,12 @@ const createAlarmHandler =
     };
 
 const registerListeners = (handlers: {
+    onNavigationCommitted: (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => Promise<void>;
     onNavigationComplete: (details: chrome.webNavigation.WebNavigationFramedCallbackDetails) => Promise<boolean>;
     onStorageChanged: (changes: { [p: string]: { newValue: any; oldValue: any } }) => Promise<boolean>;
     onAlarm: (alarm: chrome.alarms.Alarm) => Promise<void>;
 }): void => {
+    chrome.webNavigation.onCommitted.addListener(handlers.onNavigationCommitted);
     chrome.webNavigation.onCompleted.addListener(handlers.onNavigationComplete);
     chrome.storage.onChanged.addListener(handlers.onStorageChanged);
     chrome.alarms.onAlarm.addListener(handlers.onAlarm);
@@ -162,13 +196,15 @@ const initializeHealthChecks = async (deps: Pick<ServiceWorkerDeps, 'observeSyst
 const bootstrapServiceWorker = (deps: ServiceWorkerDeps) => {
     console.log('Init Service Worker: ' + new Date().toISOString());
 
+    const injectInjectedScripts = createInjectedScriptInjector(deps);
     const injectContentPage = createContentInjector(deps);
+    const onNavigationCommitted = createNavigationCommittedHandler(deps, injectInjectedScripts);
     const onNavigationComplete = createNavigationHandler(deps, injectContentPage);
     const onRegisteredSystemsChanged = createRegisteredSystemsChangeHandler(deps, injectContentPage);
     const onStorageChanged = createStorageChangeHandler(onRegisteredSystemsChanged);
     const onAlarm = createAlarmHandler(deps);
 
-    registerListeners({ onNavigationComplete, onStorageChanged, onAlarm });
+    registerListeners({ onNavigationCommitted, onNavigationComplete, onStorageChanged, onAlarm });
 
     initializeHealthChecks(deps).catch((error) => {
         console.error('Failed to initialize health checks', error);

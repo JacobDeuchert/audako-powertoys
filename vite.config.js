@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
           popup: resolve(__dirname, 'src/popup/popup.ts'),
           content: resolve(__dirname, 'src/content/content.ts'),
           background: resolve(__dirname, 'src/background.ts'),
-          'injected-scripts': resolve(__dirname, 'src/content/injected-scripts.ts')
+          'injected-scripts': resolve(__dirname, 'src/content/injected-scripts/main.ts')
         },
         output: {
           entryFileNames: 'build/[name].js',

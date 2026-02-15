@@ -71,8 +71,6 @@ async function initialize() {
 
   console.info(container);
 
-  injectScript('build/injected-scripts.js');
-
   setTimeout(() => {
     const shadowRoot = ensureShadowRoot();
     if (!shadowRoot) {
@@ -90,11 +88,6 @@ async function initialize() {
   configHelper.listenForConfigChanges();
 }
 
-function injectScript(scriptUrl) {
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL(scriptUrl);
-  (document.head || document.documentElement).appendChild(script);
-}
 
 
 initialize();
