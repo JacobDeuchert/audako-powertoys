@@ -1,9 +1,7 @@
 import { filter, from, map, share, Subject, switchMap, takeUntil } from 'rxjs';
 import { container } from 'tsyringe';
 import { EntityIcons, EntityType, LiveValueService, Signal } from 'audako-core-components';
-import { AudakoApp } from '../../../../models/audako-apps';
-import { UrlUtils } from '../../../../utils/url-utils';
-import { SearchResult } from '../search-results';
+import { SearchResult, SignalSearchResult } from '../search-results';
 import { SearchQuery } from './search-query';
 // @ts-ignore
 import SignalValue from '../../../shared/components/SignalValue.svelte';
@@ -67,15 +65,18 @@ export class SignalQuery extends SearchQuery {
           },
         };
 
-        return {
+        return new SignalSearchResult({
           title: signal.Name.Value,
           infoText: tenant?.Name,
-          defaultAction: () => UrlUtils.openApp(AudakoApp.Configuration, tenantId, signal.GroupId, signal.Id),
-          extraActions: [],
           icon: EntityIcons[EntityType.Signal],
           tooltip: () => this.entityNameService.resolvePathName(signal.Path ?? []),
           infoComponent: infoComponent,
-        };
+          context: {
+            tenantId,
+            groupId: signal.GroupId,
+            signalId: signal.Id,
+          },
+        });
       })
     );
   }

@@ -1,15 +1,10 @@
-import { AppIcons, AudakoApp } from '../../../../models/audako-apps';
+import { AudakoApp } from '../../../../models/audako-apps';
 import { TenantView } from 'audako-core-components';
-import { UrlUtils } from '../../../../utils/url-utils';
-import { SearchResult } from '../search-results';
+import { SearchResult, TenantSearchResult } from '../search-results';
 import { SearchQuery } from './search-query';
 
 export class TenantQuery extends SearchQuery {
   private readonly DEFAULT_ICON = 'adk adk-staff-assignment';
-
-  constructor() {
-    super();
-  }
 
   public async query(queryString: string, tenantRestriction?: string): Promise<SearchResult[]> {
     let matchedTenants: TenantView[] = [];
@@ -23,35 +18,18 @@ export class TenantQuery extends SearchQuery {
       matchedTenants = await this.tenantHttpService.filterTenantsByName(queryString);
     }
 
-    return matchedTenants.map((tenant) => {
-      const defaultAction = () =>
-        UrlUtils.openApp(tenant.Root ? AudakoApp.Configuration : AudakoApp.Administration, tenant.Id);
-
-      let extraActions = [
-        {
-          icon: AppIcons.Administration,
-          onClick: () => UrlUtils.openApp(AudakoApp.Administration, tenant.Id),
-        },
-      ];
-
-      if (tenant.Root) {
-        extraActions = [
-          {
-            icon: AppIcons.Dashboard,
-            onClick: () => UrlUtils.openApp(AudakoApp.Dashboard, tenant.Id),
+    return matchedTenants.map(
+      (tenant) =>
+        new TenantSearchResult({
+          title: tenant.Name,
+          icon: this.DEFAULT_ICON,
+          tooltip: () => Promise.resolve(tenant.Name),
+          context: {
+            tenantId: tenant.Id,
+            defaultApp: tenant.Root ? AudakoApp.Configuration : AudakoApp.Administration,
+            isRootTenant: !!tenant.Root,
           },
-          ...extraActions,
-        ];
-      }
-
-      return {
-        defaultAction: defaultAction,
-        extraActions: extraActions,
-        icon: this.DEFAULT_ICON,
-        tooltip: () => Promise.resolve(tenant.Name),
-        infoComponent: undefined,
-        title: tenant.Name,
-      };
-    });
+        }),
+    );
   }
 }

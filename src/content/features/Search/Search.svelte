@@ -6,7 +6,17 @@
   import { debounceTime, filter, first, map, Subject } from 'rxjs';
   import { catchPromise } from '../../../utils/promise-utils';
   import { SearchService } from './search.service';
-  import type { CategorizedSearchResults, CategorySearchResult, SearchCategory, SearchResult } from './search-results';
+  import {
+    buildStoredSearchResultCacheKey,
+    isStoredSearchResult,
+    materializeStoredSearchResult,
+  } from './search-results';
+  import type {
+    CategorizedSearchResults,
+    SearchCategory,
+    SearchResult,
+    StoredSearchResult,
+  } from './search-results';
   import { DomUtils } from '../../../utils/dom-utils';
 
   interface DisplayedCategorySearchResults {
@@ -15,17 +25,22 @@
     totalResults: SearchResult[];
   }
 
+  type CachedSelectedResult = StoredSearchResult;
+
+  const SELECTED_RESULTS_STORAGE_KEY = 'audako.search.selected-results';
+  const MAX_SELECTED_RESULTS = 12;
+
+  const initialSelectedResults = loadSelectedResults();
+
   
   const searchService = new SearchService();
 
-  let displayedResults = $state<DisplayedCategorySearchResults[]>([]);
-
-  let focusedCategory = $state<SearchCategory | null>(null);
+  let displayedResults = $state<DisplayedCategorySearchResults[]>(getDisplayedSelectedResults(initialSelectedResults));
 
   let searchOpen = $state<boolean>(false);
   let searchString = $state<string>('');
 
-  let encounteredError = $state<boolean>(false);
+  let selectedResultsCache = $state<CachedSelectedResult[]>(initialSelectedResults);
 
   let inputComponent = $state<any>(null);
   let listComponent: any;
@@ -40,47 +55,73 @@
     .asObservable()
     .pipe(
       debounceTime(300),
-      filter((x) => typeof x === 'string' && x?.length > 1),
-      map((search) => search.trim().toLowerCase()),
+      filter((x) => typeof x === 'string'),
+      map((search) => search.trim()),
     )
-    .subscribe(async (searchString) => {
-      console.log('Searching', searchString);
-      const [searchResults, error] = await catchPromise(searchService.search(searchString));
+    .subscribe(async (queryString) => {
+      if (!queryString) {
+        displayedResults = getDisplayedSelectedResults(selectedResultsCache);
+        return;
+      }
+
+      if (queryString.length <= 1) {
+        displayedResults = [];
+        return;
+      }
+
+      const normalizedSearchString = queryString.toLowerCase();
+      const [searchResults, error] = await catchPromise(searchService.search(normalizedSearchString));
       if (error) {
-        encounteredError = true;
         console.error(error);
         return;
       }
-      encounteredError = false;
 
       displayedResults = getDisplayedResults(searchResults);
-
-      console.log('Search results', displayedResults);
     });
-
-console.log('Search component loaded', window);
 
   window.addEventListener('keydown', (event: KeyboardEvent) => {
     if (event.ctrlKey && event.code === 'Space') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
       searchOpen = true;
-      console.log('Opening search');
       focusSearchInput(true);
+      return;
     }
 
+    if (!searchOpen) {
+      return;
+    }
+
+    if (event.code === 'Enter' && triggerFocusedResultAction()) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    event.stopImmediatePropagation();
+
     const excludedFocusKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
-    if (searchOpen && !event.ctrlKey && !event.shiftKey && !event.altKey && !excludedFocusKeys.includes(event.code)) {
+    if (!event.ctrlKey && !event.shiftKey && !event.altKey && !excludedFocusKeys.includes(event.code)) {
       focusSearchInput();
     }
   });
 
   window.addEventListener('keyup', (event: KeyboardEvent) => {
-    const inputElement = inputComponent.getElement();
-    const listElement = listComponent.getElement();
+    if (!searchOpen) {
+      return;
+    }
+
+    event.stopImmediatePropagation();
+
+    const textFieldElement = inputComponent?.getElement?.();
+    const inputElement = textFieldElement?.getElementsByTagName('input').item(0);
+    const listElement = listComponent?.getElement?.();
 
     if (event.code === 'ArrowDown') {
+      event.preventDefault();
       const rootNode = inputElement?.getRootNode() as Document | ShadowRoot;
       const activeElement = rootNode?.activeElement ?? document.activeElement;
-      const firstListElement = listElement.getElementsByTagName('li').item(0);
+      const firstListElement = listElement?.getElementsByTagName('li').item(0);
       if (firstListElement && activeElement === inputElement) {
         firstListElement.focus();
       }
@@ -104,6 +145,10 @@ console.log('Search component loaded', window);
 
   function showAllResults(category: SearchCategory) {
     const result = displayedResults.find((x) => x.category === category);
+    if (!result) {
+      return;
+    }
+
     displayedResults = [
       {
         category,
@@ -113,11 +158,9 @@ console.log('Search component loaded', window);
     ];
 
     const listElement = listComponent.getElement();
-    console.log(listElement);
     DomUtils.watchForDomChanges(listElement)
       .pipe(first())
-      .subscribe((changes) => {
-        console.log(changes);
+      .subscribe(() => {
         const firstListElement = listElement.getElementsByTagName('li').item(result.displayedResults.length);
         if (firstListElement) {
           firstListElement.focus();
@@ -126,7 +169,6 @@ console.log('Search component loaded', window);
   }
 
   function focusSearchInput(select: boolean = false) {
-    console.log('Focusing search input');
     const textField = inputComponent?.getElement();
 
     if (textField) {
@@ -142,10 +184,104 @@ console.log('Search component loaded', window);
       }
     }
   }
+
+  function triggerFocusedResultAction(): boolean {
+    const listElement = listComponent?.getElement?.();
+    const rootNode = listElement?.getRootNode() as Document | ShadowRoot;
+    const activeElement = (rootNode?.activeElement ?? document.activeElement) as HTMLElement | null;
+
+    if (!listElement || !activeElement || !listElement.contains(activeElement)) {
+      return false;
+    }
+
+    const focusInsideActionButton = activeElement.closest('.action-buttons, .mdc-icon-button, button');
+    if (focusInsideActionButton) {
+      return false;
+    }
+
+    const focusedListItem = activeElement.closest('li') as HTMLElement | null;
+    if (!focusedListItem || !listElement.contains(focusedListItem)) {
+      return false;
+    }
+
+    focusedListItem.click();
+    return true;
+  }
+
+  function selectResult(result: SearchResult): void {
+    cacheSelectedResult(result);
+    result.defaultAction();
+  }
+
+  function getDisplayedSelectedResults(selectedResults: CachedSelectedResult[]): DisplayedCategorySearchResults[] {
+    const groupedResults = new Map<SearchCategory, SearchResult[]>();
+
+    selectedResults.forEach((storedResult) => {
+      const materializedResult = materializeStoredSearchResult(storedResult);
+      if (!materializedResult) {
+        return;
+      }
+
+      if (!groupedResults.has(storedResult.category)) {
+        groupedResults.set(storedResult.category, []);
+      }
+
+      groupedResults.get(storedResult.category).push(materializedResult);
+    });
+
+    return Array.from(groupedResults.entries()).map(([category, results]) => ({
+      category,
+      displayedResults: results,
+      totalResults: results,
+    }));
+  }
+
+  function cacheSelectedResult(result: SearchResult): void {
+    const selectedResult = result.toStoredSearchResult(Date.now());
+
+    const resultCacheKey = buildStoredSearchResultCacheKey(selectedResult);
+    selectedResultsCache = [
+      selectedResult,
+      ...selectedResultsCache.filter(
+        (cachedResult) => buildStoredSearchResultCacheKey(cachedResult) !== resultCacheKey,
+      ),
+    ].slice(0, MAX_SELECTED_RESULTS);
+
+    persistSelectedResults(selectedResultsCache);
+  }
+
+  function loadSelectedResults(): CachedSelectedResult[] {
+    try {
+      const storedData = localStorage.getItem(SELECTED_RESULTS_STORAGE_KEY);
+      if (!storedData) {
+        return [];
+      }
+
+      const parsedData = JSON.parse(storedData);
+      if (!Array.isArray(parsedData)) {
+        return [];
+      }
+
+      return parsedData
+        .filter((entry) => isStoredSearchResult(entry))
+        .filter((entry) => !!materializeStoredSearchResult(entry))
+        .sort((a, b) => (b.selectedAt ?? 0) - (a.selectedAt ?? 0))
+        .slice(0, MAX_SELECTED_RESULTS);
+    } catch {
+      return [];
+    }
+  }
+
+  function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
+    try {
+      localStorage.setItem(SELECTED_RESULTS_STORAGE_KEY, JSON.stringify(selectedResults));
+    } catch {
+    }
+  }
 </script>
 
-<Dialog bind:open={searchOpen}>
-  <Content style="padding: 12px" class="search-dialog-content">
+<Dialog bind:open={searchOpen} class="search-dialog">
+  <Content class="search-dialog-content">
     <Textfield
       class="search-text-field"
       use={[InitialFocus]}
@@ -157,151 +293,202 @@ console.log('Search component loaded', window);
       bind:this={inputComponent}
     />
 
-    <div class="result-list-container" style="margin-top: 8px;">
-      <List bind:this={listComponent} class="result-list">
-        {#each displayedResults as categoryResults, categoryIndex}
-          <div style="font-size: 13px; font-weight: bold; opacity: 0.7; margin-top: -4px">
-            {categoryResults.category}
-          </div>
-          {#each categoryResults.displayedResults as result, resultIndex}
-            <Item class="list-item" onclick={() => result.defaultAction()}>
-              <Graphic class="search-icon {result.icon}" />
-              <Text>
-                {result.title}
-              </Text>
-
-              {#if result.infoText}
-                <Text class="info-text">
-                  &nbsp;-&nbsp;{result.infoText}
+    <div class="result-list-container">
+      {#if searchString.trim().length === 0 && displayedResults.length === 0}
+        <div class="empty-state">
+          No recent selections found. Type at least 2 characters to search.
+        </div>
+      {:else}
+        <List bind:this={listComponent} class="result-list">
+          {#each displayedResults as categoryResults, categoryIndex}
+            <div class="category-label">
+              {categoryResults.category}
+            </div>
+            {#each categoryResults.displayedResults as result}
+              <Item class="list-item" onclick={() => selectResult(result)}>
+                <Graphic class="search-icon {result.icon}" />
+                <Text class="title-text">
+                  {result.title}
                 </Text>
-              {/if}
 
-              {#if result.infoComponent}
-                {@const InfoComp = result.infoComponent.component}
-                <div class="info-component">
-                  <InfoComp {...result.infoComponent.props} />
-                </div>
-              {/if}
+                {#if result.infoText}
+                  <Text class="info-text">
+                    &nbsp;-&nbsp;{result.infoText}
+                  </Text>
+                {/if}
 
-              {#if result.extraActions?.length > 0}
-                <div class="action-buttons" onclick={(event) => event.stopPropagation()}>
-                  {#each result.extraActions as action}
-                    <IconButton onclick={() => action.onClick()}>
-                      <i class={action.icon}></i>
-                    </IconButton>
-                  {/each}
-                </div>
-              {/if}
-            </Item>
+                {#if result.infoComponent}
+                  {@const InfoComp = result.infoComponent.component}
+                  <div class="info-component">
+                    <InfoComp {...result.infoComponent.props} />
+                  </div>
+                {/if}
+
+                {#if result.extraActions?.length > 0}
+                  <div class="action-buttons">
+                    {#each result.extraActions as action}
+                      <IconButton
+                        onclick={(event) => {
+                          event.stopPropagation();
+                          action.execute(result.context);
+                        }}
+                      >
+                        <i class={action.icon}></i>
+                      </IconButton>
+                    {/each}
+                  </div>
+                {/if}
+              </Item>
+            {/each}
+            <!-- Show "View More" when displayed items are not equal the search results  -->
+            {#if categoryResults.displayedResults.length < categoryResults.totalResults.length}
+              <Item class="list-item view-all-item" onclick={() => showAllResults(categoryResults.category)}>
+                <Text class="view-all-text">
+                  View All Results (+{categoryResults.totalResults.length - categoryResults.displayedResults.length})
+                </Text>
+              </Item>
+            {/if}
+            {#if categoryIndex < displayedResults.length - 1}
+              <Separator />
+            {/if}
           {/each}
-          <!-- Show "View More" when displayed items are not equal the search results  -->
-          {#if categoryResults.displayedResults.length < categoryResults.totalResults.length}
-            <Item class="list-item" onclick={() => showAllResults(categoryResults.category)}>
-              <Text>
-                View All Results (+{categoryResults.totalResults.length - categoryResults.displayedResults.length})
-              </Text>
-            </Item>
-          {/if}
-          {#if categoryIndex < displayedResults.length - 1}
-            <Separator />
-          {/if}
-        {/each}
-      </List>
+        </List>
+      {/if}
     </div>
   </Content>
 </Dialog>
 
 <style>
-  /* .action-buttons {
-    visibility: hidden;
-    margin-left: auto;
+  .search-dialog-content {
+    padding: 12px;
+    overflow: hidden;
     display: flex;
-  }
-
-  .info-component {
-    margin-left: auto;
-  }
-
-  .signal-value {
-    margin-left: auto;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .result-list-container {
     overflow-y: auto;
-    max-height: 100%;
+    max-height: min(56vh, 560px);
   }
 
-  :global(.search-dialog) {
-    max-height: 50vh;
-    overflow: hidden;
+  .category-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.66;
+    margin: 8px 8px 4px;
   }
 
-  :global(.search-dialog .mdc-dialog__container) {
-    align-items: flex-start;
-    margin-top: 30px;
+  .title-text {
+    font-size: 13px;
+    font-weight: 500;
   }
 
-  :global(.search-dialog .mdc-dialog__surface) {
-    width: 40vw;
+  .info-component {
+    margin-left: auto;
+    padding-left: 10px;
   }
 
-  @media (max-width: 1400px) {
-    :global(.search-dialog .mdc-dialog__surface) {
-      width: 60vw;
-    }
-  }
-
-  @media (max-width: 1000px) {
-    :global(.search-dialog .mdc-dialog__surface) {
-      width: 80vw;
-    }
-  }
-
-  :global(.search-dialog .mdc-dialog__content) {
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  :global(.search-text-field) {
-    min-height: 54px;
-  }
-
-  :global(.action-buttons .mdc-icon-button) {
-    height: 36px;
-    width: 36px;
-    font-size: 18px;
+  .action-buttons {
+    visibility: hidden;
+    margin-left: auto;
     display: flex;
     align-items: center;
-    justify-items: center;
-    padding: 9px;
-  }
-
-  :global(.list-item) {
-    height: 36px;
-    padding: 8px;
-  }
-
-  :global(.info-text) {
-    opacity: 0.6;
-    font-weight: bold;
-    font-size: 12px;
-  }
-
-  :global(.search-icon) {
-    margin-right: 8px !important;
+    gap: 2px;
+    padding-left: 8px;
   }
 
   .action-buttons:focus-within {
     visibility: visible;
   }
 
-  :global(.list-item:hover .action-buttons) {
-    visibility: visible;
-  }
-
+  :global(.list-item:hover .action-buttons),
   :global(.list-item:focus-within .action-buttons) {
     visibility: visible;
   }
-    */
+
+  :global(.search-dialog .mdc-dialog__container) {
+    align-items: flex-start;
+    margin-top: 24px;
+  }
+
+  :global(.search-dialog .mdc-dialog__surface) {
+    width: min(640px, calc(100vw - 24px));
+  }
+
+  :global(.search-dialog .mdc-dialog__content) {
+    padding: 0;
+  }
+
+  :global(.search-text-field) {
+    min-height: 46px;
+  }
+
+  :global(.result-list .mdc-list-item),
+  :global(.result-list .mdc-deprecated-list-item) {
+    min-height: 34px;
+    height: 34px;
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+
+  :global(.result-list .mdc-list-item__graphic),
+  :global(.result-list .mdc-deprecated-list-item__graphic) {
+    margin-right: 8px;
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+
+  :global(.result-list .mdc-list-item__primary-text),
+  :global(.result-list .mdc-deprecated-list-item__text) {
+    line-height: 1.2;
+  }
+
+  :global(.info-text) {
+    opacity: 0.62;
+    font-size: 12px;
+    font-weight: 500;
+    margin-left: 4px;
+  }
+
+  :global(.action-buttons .mdc-icon-button) {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    padding: 7px;
+  }
+
+  .view-all-item {
+    opacity: 0.88;
+  }
+
+  .view-all-text {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .empty-state {
+    font-size: 13px;
+    padding: 12px 8px;
+    opacity: 0.72;
+  }
+
+  @media (max-width: 640px) {
+    .search-dialog-content {
+      padding: 10px;
+      gap: 6px;
+    }
+
+    :global(.search-dialog .mdc-dialog__container) {
+      margin-top: 10px;
+    }
+
+    :global(.result-list .mdc-list-item),
+    :global(.result-list .mdc-deprecated-list-item) {
+      padding: 4px 6px;
+    }
+  }
 </style>

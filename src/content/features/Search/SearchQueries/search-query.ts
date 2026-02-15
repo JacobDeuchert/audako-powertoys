@@ -1,5 +1,4 @@
 import { ConfigurationEntity, EntityHttpService, EntityNameService, EntityType, TenantHttpService, TenantView } from 'audako-core-components';
-import { container } from 'tsyringe';
 import { SearchResult } from '../search-results';
 import { resolveService } from 'audako-core-components';
 
