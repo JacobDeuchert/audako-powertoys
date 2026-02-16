@@ -1,11 +1,9 @@
-import { filter, from, map, share, Subject, switchMap, takeUntil } from 'rxjs';
+import { EntityIcons, EntityType, LiveValueService, type Signal } from 'audako-core-components';
+import { filter, from, map, Subject, share, switchMap, takeUntil } from 'rxjs';
 import { container } from 'tsyringe';
-import { EntityIcons, EntityType, LiveValueService, Signal } from 'audako-core-components';
-import { SearchResult, SignalSearchResult } from '../search-results';
-import { SearchQuery } from './search-query';
-// @ts-ignore
 import SignalValue from '../../../shared/components/SignalValue.svelte';
-
+import { type SearchResult, SignalSearchResult } from '../search-results';
+import { SearchQuery } from './search-query';
 
 export class SignalQuery extends SearchQuery {
   private liveValueService: LiveValueService;
@@ -24,14 +22,14 @@ export class SignalQuery extends SearchQuery {
       Path: 1,
       GroupId: 1,
       Type: 1,
-      Settings: 1
-    }
+      Settings: 1,
+    };
 
     const matchedEntities = await this.requestConfigurationEntities<Signal>(
       EntityType.Signal,
       queryString,
       tenantRestriction,
-      signalProjection
+      signalProjection,
     );
 
     if (matchedEntities.length === 0) {
@@ -40,21 +38,21 @@ export class SignalQuery extends SearchQuery {
 
     this._liveValueUnsub.next();
 
-    const signalIds = matchedEntities.map((signal) => signal.Id);
+    const signalIds = matchedEntities.map(signal => signal.Id);
     const liveValue$ = from(this.liveValueService.connect()).pipe(
       takeUntil(this._liveValueUnsub),
       switchMap(() => this.liveValueService.subscribeToSignalValues(signalIds)),
-      share()
+      share(),
     );
 
     return Promise.all(
-      matchedEntities.map(async (signal) => {
+      matchedEntities.map(async signal => {
         const tenant = await this.getTenantForEntity(signal);
         const tenantId = tenant?.Id ?? tenant?.Root ?? signal.Path?.[0] ?? signal.Id;
 
         const signalValue = liveValue$.pipe(
-          map((liveValues) => liveValues.find((liveValue) => liveValue.identifier === signal.Id)),
-          filter((liveValue) => !!liveValue)
+          map(liveValues => liveValues.find(liveValue => liveValue.identifier === signal.Id)),
+          filter(liveValue => !!liveValue),
         );
 
         const infoComponent = {
@@ -77,7 +75,7 @@ export class SignalQuery extends SearchQuery {
             signalId: signal.Id,
           },
         });
-      })
+      }),
     );
   }
 }

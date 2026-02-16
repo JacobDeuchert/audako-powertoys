@@ -1,10 +1,13 @@
 <script lang="ts">
   import { ChatWidget, OpenCodeAdapter } from '@audako/chat-ui';
+  import CircularProgress from '@smui/circular-progress';
+  import '@material/circular-progress/dist/mdc.circular-progress.css';
   import { Icon } from '@smui/common';
   import IconButton from '@smui/icon-button';
   import '@audako/chat-ui/style.css';
-  import { ChatSessionGatewayService } from './chat-session-gateway.service';
   import { ComponentUtils } from '../../../utils/component-utils';
+  import { ChatSessionGatewayService } from './chat-session-gateway.service';
+  import { dispatchEventToMainWorld, ENTITY_CREATED_EVENT_NAME } from '../../shared/helpers/cross-world-events';
 
   let isOpen = $state(false);
   let hasOpened = $state(false);
@@ -32,6 +35,18 @@
       initialMessage: 'Hi! How can I help?',
       placeholder: 'Type a message',
     };
+
+    const unsubscribe = ChatSessionGatewayService.instance.onSessionEvent((event) => {
+      console.log('Received session event in LlmChat:', event);
+      if (event.type === 'session.event') {
+        const sessionEvent = event.payload as any;
+        if (sessionEvent.type === 'entity.created') {
+          dispatchEventToMainWorld(ENTITY_CREATED_EVENT_NAME, sessionEvent.payload, event.sessionId);
+          console.log('Entity created event received in LlmChat:', event);
+        }
+      }
+      console.log(event.type, event.sessionId, event.timestamp, event.payload);
+    });
   }
 
   function toggleChat(): void {
@@ -52,21 +67,23 @@
 {#if hasOpened}
   <section id="audako-llm-chat-panel" class="chat-panel" class:open={isOpen} aria-hidden={!isOpen}>
     {#snippet button()}
-    <div class="chat-header">
-      <div class="chat-header-title">
-        <Icon class="material-icons chat-header-icon">smart_toy</Icon>
-        Assistant
+      <div class="chat-header">
+        <div class="chat-header-title">
+          <Icon class="material-icons chat-header-icon">smart_toy</Icon>
+          Assistant
+        </div>
+        <IconButton type="button" class="material-icons close-button" onclick={closeChat} aria-label="Close chat">
+          close
+        </IconButton>
       </div>
-      <IconButton type="button" class="material-icons close-button" onclick={closeChat} aria-label="Close chat">
-        close
-      </IconButton>
-    </div>
     {/snippet}
     <div class="chat-content">
       {#if !config}
-        <p style="padding: 16px; color: #666;">Loading...</p>
+        <div class="chat-loading" role="status" aria-live="polite" aria-label="Loading assistant">
+          <CircularProgress indeterminate />
+        </div>
       {:else}
-      <ChatWidget {config} header={button}></ChatWidget>
+        <ChatWidget {config} header={button}></ChatWidget>
       {/if}
     </div>
   </section>
@@ -175,7 +192,16 @@
   .chat-content {
     flex: 1;
     min-height: 0;
+    position: relative;
+  }
 
+  .chat-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
   }
 
   @media (max-width: 600px) {

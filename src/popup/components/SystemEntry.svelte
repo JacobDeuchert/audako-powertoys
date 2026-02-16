@@ -1,17 +1,20 @@
 <script lang="ts">
-  import type { SystemSettings } from '../../models/extension-settings';
-  import  IconButton from '@smui/icon-button';
-  import Menu from '@smui/menu';
-  import List, { Item, Separator, Text, Graphic } from '@smui/list';
-  import type { SystemStatus } from '../../models/system-status';
+import IconButton from '@smui/icon-button';
+import List, { Graphic, Item, Separator, Text } from '@smui/list';
+import Menu from '@smui/menu';
+import type { SystemSettings } from '../../models/extension-settings';
+import type { SystemStatus } from '../../models/system-status';
 
-  let { systemSettings, systemStatus, ondelete }: { systemSettings: SystemSettings; systemStatus: SystemStatus; ondelete?: () => void } = $props();
+const {
+  systemSettings,
+  systemStatus,
+  ondelete,
+}: { systemSettings: SystemSettings; systemStatus: SystemStatus; ondelete?: () => void } = $props();
 
-  let menu: any;
-  let menuAnchor: any;
+let menu: any;
+let menuAnchor: any;
 
-  let name = $derived(systemSettings ? new URL(systemSettings.url).host : '');
-
+const name = $derived(systemSettings ? new URL(systemSettings.url).host : '');
 </script>
 
 <main class="system-entry {systemStatus?.healthy ? 'healthy' : 'unhealthy'}">

@@ -1,6 +1,13 @@
-import { ConfigurationEntity, EntityHttpService, EntityNameService, EntityType, TenantHttpService, TenantView } from 'audako-core-components';
-import { SearchResult } from '../search-results';
-import { resolveService } from 'audako-core-components';
+import {
+  type ConfigurationEntity,
+  EntityHttpService,
+  EntityNameService,
+  type EntityType,
+  resolveService,
+  TenantHttpService,
+  type TenantView,
+} from 'audako-core-components';
+import type { SearchResult } from '../search-results';
 
 export abstract class SearchQuery {
   protected tenantHttpService: TenantHttpService;
@@ -23,14 +30,15 @@ export abstract class SearchQuery {
     entityType: EntityType,
     searchString: string,
     tenantRestriction?: string,
-    projection?: { [p in keyof T]?: number }
+    projection?: { [p in keyof T]?: number },
   ): Promise<T[]> {
     const searchParts = searchString.split(' ');
     const fullMatchFilter = { 'Name.Value': { $regex: searchString, $options: 'i' } };
-    const partMatchFilter = { $and: searchParts.map((x) => ({ 'Name.Value': { $regex: x, $options: 'i' } })) };
+    const partMatchFilter = {
+      $and: searchParts.map(x => ({ 'Name.Value': { $regex: x, $options: 'i' } })),
+    };
 
     let filter = { $or: [fullMatchFilter, partMatchFilter] } as { [p: string]: any };
-
 
     if (tenantRestriction && tenantRestriction.length > 0) {
       const tenant = await this.getTenantById(tenantRestriction);
@@ -47,12 +55,16 @@ export abstract class SearchQuery {
 
     projection = projection || { Id: 1, Name: 1, Path: 1, GroupId: 1 };
 
-    const result = await this.entityHttpService.queryConfiguration<T>(entityType, filter, paging, projection);
+    const result = await this.entityHttpService.queryConfiguration<T>(
+      entityType,
+      filter,
+      paging,
+      projection,
+    );
     const data = result?.data ?? [];
 
     return data.sort((a, b) => (a.Path?.length ?? 0) - (b.Path?.length ?? 0)) as T[];
   }
-
 
   public async getTenantForEntity(entity: ConfigurationEntity): Promise<TenantView | null> {
     if (!entity?.Id) {
@@ -111,5 +123,4 @@ export abstract class SearchQuery {
       this.tenantByEntityId.set(tenant.Id, tenant);
     }
   }
-
 }

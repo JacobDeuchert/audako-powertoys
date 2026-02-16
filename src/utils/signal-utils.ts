@@ -1,7 +1,6 @@
-import { Signal, SignalType } from 'audako-core-components';
+import { type Signal, SignalType } from 'audako-core-components';
 
 export class SignalUtils {
-
   public static isAnalog(signal: Signal): boolean {
     return [SignalType.AnalogInOut, SignalType.AnalogInput].includes(signal?.Type?.Value);
   }
@@ -17,5 +16,4 @@ export class SignalUtils {
   public static isUniversal(signal: Signal): boolean {
     return [SignalType.UniversalInput, SignalType.UniversalInOut].includes(signal?.Type?.Value);
   }
-
 }

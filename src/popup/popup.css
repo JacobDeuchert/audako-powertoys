@@ -1,4 +1,4 @@
-@import url('./fontawesome.css');
+@import url("./fontawesome.css");
 
 :root {
   --mdc-theme-primary: rgba(169, 55, 122, 1);
@@ -27,30 +27,28 @@
   --mdc-theme-text-icon-on-dark: hsla(0, 0%, 100%, 0.5);
 }
 
-
 @font-face {
-  font-family: 'Material Icons';
+  font-family: "Material Icons";
   font-style: normal;
   font-weight: 400;
-  src: local('Material Icons'),
-    local('MaterialIcons-Regular'),
-    url(./../assets/MaterialIcons-Regular.woff2) format('woff2')
+  src:
+    local("Material Icons"),
+    local("MaterialIcons-Regular"),
+    url(./../assets/MaterialIcons-Regular.woff2) format("woff2");
 }
 
 @font-face {
-  font-family: 'Fontawesome';
+  font-family: "Fontawesome";
   font-style: normal;
   font-weight: 400;
-  src: url(./../assets/fa-solid-900.woff2) format('woff2')
+  src: url(./../assets/fa-solid-900.woff2) format("woff2");
 }
-
-
 
 .material-icons {
-  font-family: 'Material Icons';
+  font-family: "Material Icons";
   font-weight: normal;
   font-style: normal;
-  font-size: 24px;  /* Preferred icon size */
+  font-size: 24px; /* Preferred icon size */
   display: inline-block;
   line-height: 1;
   text-transform: none;
@@ -66,11 +64,11 @@
 .far,
 .fal,
 .fad,
-.fab{ 
-  font-family: 'Fontawesome';
+.fab {
+  font-family: "Fontawesome";
   font-weight: normal;
   font-style: normal;
-  font-size: 24px;  /* Preferred icon size */
+  font-size: 24px; /* Preferred icon size */
   display: inline-block;
   line-height: 1;
   text-transform: none;
@@ -90,7 +88,7 @@ body {
 html,
 body {
   background-color: var(--mdc-theme-background);
-  color: var(--mdc-theme-text-primary-on-background)
+  color: var(--mdc-theme-text-primary-on-background);
 }
 
 * {
@@ -100,4 +98,3 @@ body {
 .mdc-menu * {
   color: var(--mdc-theme-on-surface) !important;
 }
-

@@ -1,99 +1,98 @@
 <script lang="ts">
-  import { Input } from '@smui/textfield';
-  import IconButton from '@smui/icon-button';
-  import Button, { Label } from '@smui/button';
-  import { Icon } from '@smui/common';
-  import Ripple from '@smui/ripple';
-  import SystemEntry from '../components/SystemEntry.svelte';
+import Button, { Label } from '@smui/button';
+import { Icon } from '@smui/common';
+import IconButton from '@smui/icon-button';
+import Ripple from '@smui/ripple';
+import { Input } from '@smui/textfield';
+import { BaseHttpService } from 'audako-core-components';
+import type { SystemSettings } from '../../models/extension-settings';
+import type { SystemStatus } from '../../models/system-status';
+import { StorageUtils } from '../../utils/storage-utils';
+import SystemEntry from '../components/SystemEntry.svelte';
 
-  import { StorageUtils } from '../../utils/storage-utils';
-  import type { SystemSettings } from '../../models/extension-settings';
-  import { BaseHttpService } from 'audako-core-components';
-  import type { SystemStatus } from '../../models/system-status';
+const search = $state<string>('');
 
-  let search = $state<string>('');
+let systemSettings = $state<SystemSettings[]>([]);
+let systemStats = $state<{ [url: string]: SystemStatus }>({});
 
-  let systemSettings = $state<SystemSettings[]>([]);
-  let systemStats = $state<{ [url: string]: SystemStatus }>({});
+let showUnknownSystemHint = $state<boolean>(false);
 
-  let showUnknownSystemHint = $state<boolean>(false);
+async function registerSystem(): Promise<void> {
+  console.log('Add to known urls');
+  const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+  console.log(activeTab);
 
-  async function registerSystem(): Promise<void> {
-    console.log('Add to known urls');
-    const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
-    console.log(activeTab);
+  if (!activeTab) {
+    return;
+  }
 
-    if (!activeTab) {
+  try {
+    const url = new URL(activeTab.url);
+
+    // check if system is not already registered
+    if (systemSettings.some(x => x.url === url.origin)) {
+      console.log('System already registered');
       return;
     }
 
-    try {
-      const url = new URL(activeTab.url);
+    const newSystemEntry: SystemSettings = {
+      nt: true,
+      ft: true,
+      url: url.origin,
+      al: null,
+      rh: false,
+    };
 
-      // check if system is not already registered
-      if (systemSettings.some((x) => x.url === url.origin)) {
-        console.log('System already registered');
-        return;
+    systemSettings = [...systemSettings, newSystemEntry];
+    showUnknownSystemHint = false;
+    StorageUtils.setRegisteredSystemSettings($state.snapshot(systemSettings));
+  } catch (e) {
+    console.log('Failed to register new system: ' + e);
+  }
+}
+
+async function checkForAudakoSystem(): Promise<void> {
+  try {
+    const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+
+    const url = new URL(activeTab.url);
+
+    if (!systemSettings.some(x => x.url === url.origin)) {
+      try {
+        await BaseHttpService.requestHttpConfig(url.origin);
+        showUnknownSystemHint = true;
+      } catch (error) {
+        showUnknownSystemHint = false;
       }
-
-      const newSystemEntry: SystemSettings = {
-        nt: true,
-        ft: true,
-        url: url.origin,
-        al: null,
-        rh: false,
-      };
-
-      systemSettings = [...systemSettings, newSystemEntry];
-      showUnknownSystemHint = false;
-      StorageUtils.setRegisteredSystemSettings($state.snapshot(systemSettings));
-    } catch (e) {
-      console.log('Failed to register new system: ' + e);
     }
-  }
+  } catch (e) {}
+}
 
-  async function checkForAudakoSystem(): Promise<void> {
-    try {
-      const activeTab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+async function onDeleteSystem(system: SystemSettings): Promise<void> {
+  const index = systemSettings.findIndex(x => x.url === system.url);
+  systemSettings.splice(index, 1);
+  systemSettings = [...systemSettings];
+  StorageUtils.setRegisteredSystemSettings(systemSettings);
+}
 
-      const url = new URL(activeTab.url);
+async function openSystem(system: SystemSettings): Promise<void> {
+  chrome.tabs.create({
+    active: true,
+    url: system.url,
+  });
+}
 
-      if (!systemSettings.some((x) => x.url === url.origin)) {
-        try {
-          await BaseHttpService.requestHttpConfig(url.origin);
-          showUnknownSystemHint = true;
-        } catch (error) {
-          showUnknownSystemHint = false;
-        }
-      }
-    } catch (e) {}
-  }
+async function init(): Promise<void> {
+  systemSettings = await StorageUtils.getRegisteredSystemSettings();
+  await checkForAudakoSystem();
+  StorageUtils.listenForStatusChanges().subscribe(x => {
+    console.log('Status changed: ', x);
 
-  async function onDeleteSystem(system: SystemSettings): Promise<void> {
-    const index = systemSettings.findIndex((x) => x.url === system.url);
-    systemSettings.splice(index, 1);
-    systemSettings = [...systemSettings];
-    StorageUtils.setRegisteredSystemSettings(systemSettings);
-  }
+    systemStats = x;
+  });
+}
 
-  async function openSystem(system: SystemSettings): Promise<void> {
-    chrome.tabs.create({
-      active: true,
-      url: system.url,
-    });
-  }
-
-  async function init(): Promise<void> {
-    systemSettings = await StorageUtils.getRegisteredSystemSettings();
-    await checkForAudakoSystem();
-    StorageUtils.listenForStatusChanges().subscribe((x) => {
-      console.log('Status changed: ', x);
-
-      systemStats = x;
-    });
-  }
-
-  init();
+init();
 </script>
 
 <main>

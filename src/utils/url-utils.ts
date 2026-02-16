@@ -1,6 +1,6 @@
-import { filter, map, Observable, timer } from 'rxjs';
+import type { EntityType } from 'audako-core-components';
+import { filter, map, type Observable, timer } from 'rxjs';
 import { AudakoApp } from '../models/audako-apps';
-import { EntityType } from 'audako-core-components';
 export class UrlUtils {
   private static appRouteMapping: { [key: string]: AudakoApp } = {
     config: AudakoApp.Configuration,
@@ -12,7 +12,7 @@ export class UrlUtils {
     tenantId: string,
     groupId?: string,
     detailId?: string,
-    detailType?: EntityType
+    detailType?: EntityType,
   ): void {
     const url = UrlUtils.buildAppUrl(app, tenantId, groupId, detailId, detailType);
     window.location.href = url;
@@ -23,7 +23,7 @@ export class UrlUtils {
     tenantId: string,
     groupId?: string,
     detailId?: string,
-    detailType?: EntityType
+    detailType?: EntityType,
   ): string {
     let url = null;
     switch (app) {
@@ -60,6 +60,10 @@ export class UrlUtils {
     return null;
   }
 
+  public static getCurrentApp(): AudakoApp {
+    return UrlUtils.getAppFromUrl(window.location.pathname);
+  }
+
   public static getAppFromUrl(url: string): AudakoApp {
     if (!url || url.length === 0) {
       return null;
@@ -76,7 +80,7 @@ export class UrlUtils {
 
   public static getAppUrl(app: AudakoApp): string {
     let url = null;
-    Object.keys(UrlUtils.appRouteMapping).forEach((key) => {
+    Object.keys(UrlUtils.appRouteMapping).forEach(key => {
       if (UrlUtils.appRouteMapping[key] === app) {
         url = key;
       }
@@ -85,7 +89,7 @@ export class UrlUtils {
   }
 
   public static getGroupIdFromUrl(url: string): string {
-    const app = this.getAppFromUrl(url);
+    const app = UrlUtils.getAppFromUrl(url);
     if (!app) {
       return null;
     }
@@ -103,7 +107,7 @@ export class UrlUtils {
       map(() => {
         currentLocation = window.location.pathname;
         return currentLocation;
-      })
+      }),
     );
   }
 
@@ -121,13 +125,20 @@ export class UrlUtils {
 
   public static isInEntityConfiguration(): boolean {
     const currentLocation = window.location.pathname;
-    return this.isActiveApp(AudakoApp.Configuration) && currentLocation.includes('detail');
+    return UrlUtils.isActiveApp(AudakoApp.Configuration) && currentLocation.includes('detail');
   }
 
-  public static getEntityConfigurationDetails(): { tenantId: string; groupId: string; entityId: string; entityType: EntityType } {
+  public static getEntityConfigurationDetails(): {
+    tenantId: string;
+    groupId: string;
+    entityId: string;
+    entityType: EntityType;
+  } {
     const currentLocation = window.location.pathname;
 
-    const matchResults = currentLocation.match(/(.{24})\/config\/(.{24})\/detail\/(.{3,24})\/([A-z]+)/);
+    const matchResults = currentLocation.match(
+      /(.{24})\/config\/(.{24})\/detail\/(.{3,24})\/([A-z]+)/,
+    );
     if (!matchResults) return null;
     return {
       tenantId: matchResults[1],
@@ -139,10 +150,14 @@ export class UrlUtils {
 
   public static isInEntityList(): boolean {
     const currentLocation = window.location.pathname;
-    return currentLocation.includes('list')
+    return currentLocation.includes('list');
   }
 
-  public static getEntityListDetails(): {tenantId: string; groupId: string, entityType: EntityType} {
+  public static getEntityListDetails(): {
+    tenantId: string;
+    groupId: string;
+    entityType: EntityType;
+  } {
     const currentLocation = window.location.pathname;
     const matchResults = currentLocation.match(/(.{24})\/config\/(.{24})\/list\/([A-z]+)/);
     if (!matchResults) return null;
@@ -150,7 +165,7 @@ export class UrlUtils {
     return {
       tenantId: matchResults[1],
       groupId: matchResults[2],
-      entityType: matchResults[3] as EntityType
+      entityType: matchResults[3] as EntityType,
     };
   }
 }

@@ -1,5 +1,5 @@
-import type { Component } from 'svelte';
 import { EntityType } from 'audako-core-components';
+import type { Component } from 'svelte';
 import { AppIcons, AudakoApp } from '../../../models/audako-apps';
 import { UrlUtils } from '../../../utils/url-utils';
 
@@ -44,7 +44,9 @@ export abstract class ResultAction<TContext extends Record<string, any>> {
   protected abstract onExecute(context: TContext): void;
 }
 
-export class CallbackResultAction<TContext extends Record<string, any>> extends ResultAction<TContext> {
+export class CallbackResultAction<
+  TContext extends Record<string, any>,
+> extends ResultAction<TContext> {
   constructor(
     icon: string,
     private readonly callback: (context: TContext) => void,
@@ -136,14 +138,14 @@ export class TenantSearchResult extends SearchResult<TenantSearchResultContext> 
     context: TenantSearchResultContext;
   }) {
     const extraActions: ResultAction<TenantSearchResultContext>[] = [
-      new CallbackResultAction(AppIcons.Administration, (context) => {
+      new CallbackResultAction(AppIcons.Administration, context => {
         UrlUtils.openApp(AudakoApp.Administration, context.tenantId);
       }),
     ];
 
     if (params.context.isRootTenant) {
       extraActions.unshift(
-        new CallbackResultAction(AppIcons.Dashboard, (context) => {
+        new CallbackResultAction(AppIcons.Dashboard, context => {
           UrlUtils.openApp(AudakoApp.Dashboard, context.tenantId);
         }),
       );
@@ -159,7 +161,9 @@ export class TenantSearchResult extends SearchResult<TenantSearchResultContext> 
     });
   }
 
-  protected override serializeContext(context: TenantSearchResultContext): SerializedTenantSearchResultContext {
+  protected override serializeContext(
+    context: TenantSearchResultContext,
+  ): SerializedTenantSearchResultContext {
     return {
       contextType: TENANT_CONTEXT_TYPE,
       ...context,
@@ -195,7 +199,7 @@ export class GroupSearchResult extends SearchResult<GroupSearchResultContext> {
     const extraActions: ResultAction<GroupSearchResultContext>[] = [];
     if (params.context.isEntryPoint) {
       extraActions.push(
-        new CallbackResultAction(AppIcons.Dashboard, (context) => {
+        new CallbackResultAction(AppIcons.Dashboard, context => {
           UrlUtils.openApp(AudakoApp.Dashboard, context.tenantId, context.groupId);
         }),
       );
@@ -211,7 +215,9 @@ export class GroupSearchResult extends SearchResult<GroupSearchResultContext> {
     });
   }
 
-  protected override serializeContext(context: GroupSearchResultContext): SerializedGroupSearchResultContext {
+  protected override serializeContext(
+    context: GroupSearchResultContext,
+  ): SerializedGroupSearchResultContext {
     return {
       contextType: GROUP_CONTEXT_TYPE,
       ...context,
@@ -268,7 +274,13 @@ export class GenericEntitySearchResult extends SearchResult<GenericEntitySearchR
   }
 
   protected onDefaultAction(context: GenericEntitySearchResultContext): void {
-    UrlUtils.openApp(context.app, context.tenantId, context.groupId, context.detailId, context.detailType);
+    UrlUtils.openApp(
+      context.app,
+      context.tenantId,
+      context.groupId,
+      context.detailId,
+      context.detailType,
+    );
   }
 }
 
@@ -305,7 +317,9 @@ export class SignalSearchResult extends SearchResult<SignalSearchResultContext> 
     });
   }
 
-  protected override serializeContext(context: SignalSearchResultContext): SerializedSignalSearchResultContext {
+  protected override serializeContext(
+    context: SignalSearchResultContext,
+  ): SerializedSignalSearchResultContext {
     return {
       contextType: SIGNAL_CONTEXT_TYPE,
       ...context,
@@ -339,7 +353,9 @@ const deserializeContext = <TContext extends Record<string, any>>(
     return null;
   }
 
-  return stripContextType(value as { contextType: SearchResultContextType } & TContext) as unknown as TContext;
+  return stripContextType(
+    value as { contextType: SearchResultContextType } & TContext,
+  ) as unknown as TContext;
 };
 
 export const isStoredSearchResult = (value: unknown): value is StoredSearchResult => {
@@ -358,10 +374,15 @@ export const isStoredSearchResult = (value: unknown): value is StoredSearchResul
   );
 };
 
-export const materializeStoredSearchResult = (storedResult: StoredSearchResult): SearchResult | null => {
+export const materializeStoredSearchResult = (
+  storedResult: StoredSearchResult,
+): SearchResult | null => {
   switch (storedResult.type) {
     case 'tenant': {
-      const context = deserializeContext<TenantSearchResultContext>(storedResult.context, TENANT_CONTEXT_TYPE);
+      const context = deserializeContext<TenantSearchResultContext>(
+        storedResult.context,
+        TENANT_CONTEXT_TYPE,
+      );
       if (!context) {
         return null;
       }
@@ -374,7 +395,10 @@ export const materializeStoredSearchResult = (storedResult: StoredSearchResult):
       });
     }
     case 'group': {
-      const context = deserializeContext<GroupSearchResultContext>(storedResult.context, GROUP_CONTEXT_TYPE);
+      const context = deserializeContext<GroupSearchResultContext>(
+        storedResult.context,
+        GROUP_CONTEXT_TYPE,
+      );
       if (!context) {
         return null;
       }
@@ -404,7 +428,10 @@ export const materializeStoredSearchResult = (storedResult: StoredSearchResult):
       });
     }
     case 'signal': {
-      const context = deserializeContext<SignalSearchResultContext>(storedResult.context, SIGNAL_CONTEXT_TYPE);
+      const context = deserializeContext<SignalSearchResultContext>(
+        storedResult.context,
+        SIGNAL_CONTEXT_TYPE,
+      );
       if (!context) {
         return null;
       }

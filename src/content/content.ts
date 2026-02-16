@@ -2,12 +2,21 @@ import './global.css';
 import '../../node_modules/svelte-material-ui/themes/svelte.css';
 // import for tsyringe
 import 'reflect-metadata';
-// @ts-ignore
-import App from './App.svelte';
-import { container } from 'tsyringe';
-import { EntityConfigurationHelper } from './shared/helpers/entity-configuration-helper';
+import {
+  BaseHttpService,
+  registerCoreServices,
+  setGlobalDependencyContainer,
+} from 'audako-core-components';
 import { mount } from 'svelte';
-import { BaseHttpService, registerCoreServices, setGlobalDependencyContainer } from 'audako-core-components';
+import { container } from 'tsyringe';
+import App from './App.svelte';
+import {
+  ENTITY_CREATED_EVENT_NAME,
+  EntityCreatedEventPayload,
+  dispatchEventToMainWorld,
+  isMainWorldEventAckMessage,
+} from './shared/helpers/cross-world-events';
+import { EntityConfigurationHelper } from './shared/helpers/entity-configuration-helper';
 
 const SHADOW_HOST_ID = 'audako-powertoys-shadow-host';
 const APP_ROOT_ID = 'audako-powertoys-root';
@@ -63,7 +72,7 @@ async function initialize() {
     window['audako-powertoys'] = true;
   }
 
-  const config =await BaseHttpService.requestHttpConfig(window.location.origin);
+  const config = await BaseHttpService.requestHttpConfig(window.location.origin);
 
   setGlobalDependencyContainer(container);
 
@@ -87,8 +96,6 @@ async function initialize() {
   const configHelper = new EntityConfigurationHelper();
   configHelper.listenForConfigChanges();
 }
-
-
 
 initialize();
 

@@ -1,5 +1,5 @@
 export enum MessageType {
-  RegisterUrl
+  RegisterUrl,
 }
 
 export class ExtensionMessage {

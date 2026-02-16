@@ -1,10 +1,13 @@
-import { ConfigurationEntity, EntityIcons, EntityType } from 'audako-core-components';
-import { AudakoApp } from '../../../../models/audako-apps';
-import { GenericEntitySearchResult, SearchResult } from '../search-results';
+import { type ConfigurationEntity, EntityIcons, type EntityType } from 'audako-core-components';
+import type { AudakoApp } from '../../../../models/audako-apps';
+import { GenericEntitySearchResult, type SearchResult } from '../search-results';
 import { SearchQuery } from './search-query';
 
 export class GenericEntityQuery extends SearchQuery {
-  constructor(public entityType: EntityType, public defaultApp: AudakoApp) {
+  constructor(
+    public entityType: EntityType,
+    public defaultApp: AudakoApp,
+  ) {
     super();
   }
 
@@ -12,11 +15,11 @@ export class GenericEntityQuery extends SearchQuery {
     const matchedEntities = await this.requestConfigurationEntities<ConfigurationEntity>(
       this.entityType,
       queryString,
-      tenantRestriction
+      tenantRestriction,
     );
 
     return Promise.all(
-      matchedEntities.map(async (entity) => {
+      matchedEntities.map(async entity => {
         const tenant = await this.getTenantForEntity(entity);
         const tenantId = tenant?.Id ?? tenant?.Root ?? entity.Path?.[0] ?? entity.Id;
 
@@ -33,7 +36,7 @@ export class GenericEntityQuery extends SearchQuery {
             detailId: entity.Id,
           },
         });
-      })
+      }),
     );
   }
 }

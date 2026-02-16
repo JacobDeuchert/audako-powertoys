@@ -1,6 +1,6 @@
+import type { TenantView } from 'audako-core-components';
 import { AudakoApp } from '../../../../models/audako-apps';
-import { TenantView } from 'audako-core-components';
-import { SearchResult, TenantSearchResult } from '../search-results';
+import { type SearchResult, TenantSearchResult } from '../search-results';
 import { SearchQuery } from './search-query';
 
 export class TenantQuery extends SearchQuery {
@@ -19,7 +19,7 @@ export class TenantQuery extends SearchQuery {
     }
 
     return matchedTenants.map(
-      (tenant) =>
+      tenant =>
         new TenantSearchResult({
           title: tenant.Name,
           icon: this.DEFAULT_ICON,

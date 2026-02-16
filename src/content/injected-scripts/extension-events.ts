@@ -1,29 +1,87 @@
-const EXTENSION_WORLD_SOURCE = 'audako-powertoys-extension';
-const MAIN_WORLD_SOURCE = 'audako-powertoys-main';
-const EXTENSION_EVENT_MESSAGE_TYPE = 'audako-powertoys:event';
-const MAIN_WORLD_EVENT_ACK_TYPE = 'audako-powertoys:event:ack';
+import { AudakoApp } from '../../models/audako-apps';
+import { ComponentUtils } from '../../utils/component-utils';
+import { UrlUtils } from '../../utils/url-utils';
+import {
+  ENTITY_CREATED_EVENT_NAME,
+  ENTITY_UPDATED_EVENT_NAME,
+  type EntityCreatedEventPayload,
+  dispatchEventAckToExtensionWorld,
+  isEntityEventName,
+  isExtensionWorldEventMessage,
+} from '../shared/helpers/cross-world-events';
 
-const ALLOWED_EVENT_NAMES = new Set(['entity.updated']);
-
-type ExtensionWorldEventMessage = {
-  source: typeof EXTENSION_WORLD_SOURCE;
-  type: typeof EXTENSION_EVENT_MESSAGE_TYPE;
-  requestId?: string;
-  payload?: {
-    name?: string;
-    detail?: any;
+interface SidebarComponent {
+  configDataChangedService: {
+    configDataChangedTrigger(change: { id: string; type: string }, resetCache?: boolean): void;
   };
-};
+}
 
-function isExtensionWorldEventMessage(value: any): value is ExtensionWorldEventMessage {
-  return (
-    !!value
-    && value.source === EXTENSION_WORLD_SOURCE
-    && value.type === EXTENSION_EVENT_MESSAGE_TYPE
+interface TypesOverviewComponent {
+  _requestTypeCounts(): void;
+}
+
+function noopEntityEventHandler(_event: Event): void {}
+
+function handleEntityCreateEvent(event: CustomEvent): void {
+  if (UrlUtils.getCurrentApp() !== AudakoApp.Configuration) {
+    return;
+  }
+
+  console.log(
+    '[audako-powertoys] Received entity created event in extension world:',
+    event.type,
+    event.detail,
   );
+
+  const sidebarComponent = ComponentUtils.getComponentByTagName(
+    'audako4-sidebar',
+  ) as unknown as SidebarComponent;
+
+  const typesOverview = ComponentUtils.getFirstRouterOutletChildByComponentSelector(
+    'audako4-configuration',
+  ) as unknown as TypesOverviewComponent;
+
+  console.log(typesOverview);
+  console.log(
+    '[audako-powertoys] Retrieved sidebar component for entity created event:',
+    sidebarComponent,
+  );
+
+  if (
+    sidebarComponent &&
+    typeof sidebarComponent.configDataChangedService?.configDataChangedTrigger === 'function'
+  ) {
+    const detail = event.detail as EntityCreatedEventPayload;
+    sidebarComponent.configDataChangedService.configDataChangedTrigger(
+      {
+        id: detail.entityId,
+        type: detail.entityType,
+      },
+      true,
+    );
+
+    console.log(
+      '[audako-powertoys] Triggered sidebar configDataChangedTrigger due to entity created event:',
+      detail,
+    );
+  }
+
+  if (typesOverview && typeof typesOverview._requestTypeCounts === 'function') {
+    typesOverview._requestTypeCounts();
+    console.log(
+      '[audako-powertoys] Triggered types overview _requestTypeCounts due to entity created event',
+    );
+  }
+}
+
+function registerNoopEntityEventHandlers(): void {
+  document.addEventListener(ENTITY_UPDATED_EVENT_NAME, noopEntityEventHandler);
+  document.addEventListener(ENTITY_CREATED_EVENT_NAME, handleEntityCreateEvent);
 }
 
 export function registerExtensionEventHandler(): void {
+  registerNoopEntityEventHandlers();
+
   window.addEventListener('message', (event: MessageEvent) => {
     if (event.source !== window) {
       return;
@@ -34,7 +92,7 @@ export function registerExtensionEventHandler(): void {
     }
 
     const eventName = event.data.payload?.name;
-    if (typeof eventName !== 'string' || !ALLOWED_EVENT_NAMES.has(eventName)) {
+    if (!isEntityEventName(eventName)) {
       return;
     }
 
@@ -48,17 +106,6 @@ export function registerExtensionEventHandler(): void {
       return;
     }
 
-    window.postMessage(
-      {
-        source: MAIN_WORLD_SOURCE,
-        type: MAIN_WORLD_EVENT_ACK_TYPE,
-        requestId: event.data.requestId,
-        payload: {
-          event: eventName,
-          ok: true,
-        },
-      },
-      '*',
-    );
+    dispatchEventAckToExtensionWorld(eventName, event.data.requestId, true);
   });
 }

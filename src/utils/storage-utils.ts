@@ -1,73 +1,89 @@
-import { BehaviorSubject, combineLatest, concat, from, Observable, Subject } from 'rxjs';
-import { FeatureSettings, NotificationSettings, SystemSettings } from '../models/extension-settings';
-import { SystemStatus } from '../models/system-status';
+import { BehaviorSubject, combineLatest, concat, from, type Observable, Subject } from 'rxjs';
+import type {
+  FeatureSettings,
+  NotificationSettings,
+  SystemSettings,
+} from '../models/extension-settings';
+import type { SystemStatus } from '../models/system-status';
 
-export type SystemStats = {[p: string]: SystemStatus};
+export type SystemStats = { [p: string]: SystemStatus };
 export class StorageUtils {
-
   public static async getRegisteredSystemSettings(): Promise<SystemSettings[]> {
-    const storageEntry = await chrome.storage.sync.get('registeredSystems') as {registeredSystems: SystemSettings[]};
+    const storageEntry = (await chrome.storage.sync.get('registeredSystems')) as {
+      registeredSystems: SystemSettings[];
+    };
     console.log(storageEntry);
     if (storageEntry && Array.isArray(storageEntry.registeredSystems)) {
-      return storageEntry.registeredSystems
+      return storageEntry.registeredSystems;
     }
     await StorageUtils.setRegisteredSystemSettings([]);
     return [];
   }
 
-  public static async setRegisteredSystemSettings(registeredSystems: SystemSettings[]): Promise<void> {
+  public static async setRegisteredSystemSettings(
+    registeredSystems: SystemSettings[],
+  ): Promise<void> {
     console.log('Setting registered systems:', registeredSystems);
-    await chrome.storage.sync.set({registeredSystems: registeredSystems});
+    await chrome.storage.sync.set({ registeredSystems: registeredSystems });
   }
 
-  public static async getSystemStats(): Promise<{[p: string]: SystemStatus}> {
-    const storageEntry = await chrome.storage.sync.get('systemStats') as {systemStats: {[url: string]: SystemStatus}};
+  public static async getSystemStats(): Promise<{ [p: string]: SystemStatus }> {
+    const storageEntry = (await chrome.storage.sync.get('systemStats')) as {
+      systemStats: { [url: string]: SystemStatus };
+    };
     console.log(storageEntry);
     if (storageEntry) {
       return storageEntry.systemStats;
     }
     await StorageUtils.setSystemStats({});
-    return {}
+    return {};
   }
 
   public static async setSystemStats(systemStats: SystemStats): Promise<void> {
-    await chrome.storage.sync.set({systemStats: systemStats});
+    await chrome.storage.sync.set({ systemStats: systemStats });
   }
 
-  public static listenForStatusChanges(): Observable<{[p: string]: SystemStatus}> {
-    const systemStatsChanged = new Subject<{[p: string]: SystemStatus}>();
-    
-    chrome.storage.onChanged.addListener((changes: {systemStats?: {newValue: SystemStats, oldValue: SystemStats}})=> {
-      if (changes.systemStats) {
-        systemStatsChanged.next(changes.systemStats.newValue);
-      }
-      return true;
-    });
-    return concat(from(this.getSystemStats()), systemStatsChanged.asObservable());
+  public static listenForStatusChanges(): Observable<{ [p: string]: SystemStatus }> {
+    const systemStatsChanged = new Subject<{ [p: string]: SystemStatus }>();
+
+    chrome.storage.onChanged.addListener(
+      (changes: { systemStats?: { newValue: SystemStats; oldValue: SystemStats } }) => {
+        if (changes.systemStats) {
+          systemStatsChanged.next(changes.systemStats.newValue);
+        }
+        return true;
+      },
+    );
+    return concat(from(StorageUtils.getSystemStats()), systemStatsChanged.asObservable());
   }
 
   public static async getFeatureSettings(): Promise<FeatureSettings> {
-    const storageEntry = await chrome.storage.sync.get('featureSettings') as {featureSettings: FeatureSettings};
+    const storageEntry = (await chrome.storage.sync.get('featureSettings')) as {
+      featureSettings: FeatureSettings;
+    };
     console.log(storageEntry);
 
     return storageEntry?.featureSettings;
   }
 
   public static async getNotificationSettings(): Promise<NotificationSettings> {
-    const storageEntry = await chrome.storage.sync.get('notifiactionSettings') as {notifiactionSettings: NotificationSettings};
+    const storageEntry = (await chrome.storage.sync.get('notifiactionSettings')) as {
+      notifiactionSettings: NotificationSettings;
+    };
     if (storageEntry && storageEntry.notifiactionSettings) {
       return storageEntry.notifiactionSettings;
     }
 
     const notifiactionSettings: NotificationSettings = {
-      enabled: true
-    } 
-    await this.setNotificationSettings(notifiactionSettings);
+      enabled: true,
+    };
+    await StorageUtils.setNotificationSettings(notifiactionSettings);
     return notifiactionSettings;
   }
 
-  public static async setNotificationSettings(notifiactionSettings: NotificationSettings): Promise<void> {
-    await chrome.storage.sync.set({notifiactionSettings: notifiactionSettings});
+  public static async setNotificationSettings(
+    notifiactionSettings: NotificationSettings,
+  ): Promise<void> {
+    await chrome.storage.sync.set({ notifiactionSettings: notifiactionSettings });
   }
-
 }

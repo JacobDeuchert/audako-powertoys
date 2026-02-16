@@ -1,6 +1,6 @@
 export enum HealthStatus {
   Healthy = 'Healthy',
-  UnHealthy = 'UnHealthy'
+  UnHealthy = 'UnHealthy',
 }
 
 export interface CombinedHealthCheckResponse {
@@ -18,9 +18,7 @@ export interface HealthCheckResponse<T extends HealthEntries> {
   TotalDuration: string;
 }
 
-export interface HealthEntries {
-
-}
+export type HealthEntries = {};
 
 export interface StructureHealthEntries extends HealthEntries {
   StructureDB: BasicHealthInformation<any>;
@@ -58,7 +56,6 @@ export interface MaintenanceHealthEntries extends HealthEntries {
   MaintDB: BasicHealthInformation<any>;
   LockDB: BasicHealthInformation<any>;
 }
-
 
 export interface BasicHealthInformation<T> {
   Data: T;

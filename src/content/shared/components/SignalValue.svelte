@@ -1,120 +1,138 @@
 <script lang="ts">
-  import Tooltip, { Wrapper } from '@smui/tooltip';
-  import { onMount } from 'svelte';
+import Tooltip, { Wrapper } from '@smui/tooltip';
+import type {
+  Signal,
+  SignalAnalogSettings,
+  SignalDigitalSettings,
+  SignalLiveValue,
+} from 'audako-core-components';
+import { DateTime } from 'luxon';
+import type { Observable, Subscription } from 'rxjs';
+import { isObservable } from 'rxjs';
+import { onMount } from 'svelte';
+import { ColorUtils } from '../../../utils/color-utils';
+import { SignalUtils } from '../../../utils/signal-utils';
 
-  import { DateTime } from 'luxon';
-  import type { SignalLiveValue } from 'audako-core-components';
-  import { ColorUtils } from '../../../utils/color-utils';
-  import type { Observable, Subscription } from 'rxjs';
-  import { isObservable } from 'rxjs';
-  import { SignalUtils } from '../../../utils/signal-utils';
-  import { Signal, SignalAnalogSettings, SignalDigitalSettings } from 'audako-core-components';
+const {
+  signal,
+  signalValue,
+  displayTimestamp = false,
+}: {
+  signal: Signal;
+  signalValue: SignalLiveValue | Observable<SignalLiveValue>;
+  displayTimestamp?: boolean;
+} = $props();
 
-  let { signal, signalValue, displayTimestamp = false }: { signal: Signal; signalValue: SignalLiveValue | Observable<SignalLiveValue>; displayTimestamp?: boolean } = $props();
+let stringValue = $state<string>('');
+let boolValue = $state<boolean>(false);
+let noValue = $state<boolean>(true);
 
-  let stringValue = $state<string>('');
-  let boolValue = $state<boolean>(false);
-  let noValue = $state<boolean>(true);
+let timestamp = $state<string>('');
 
-  let timestamp = $state<string>('');
+let tooltip = $state<string>('');
 
-  let tooltip = $state<string>('');
+const ledStyle = $state({
+  'led-color': null,
+  'led-light-color': null,
+});
 
-  let ledStyle = $state({
-    'led-color': null,
-    'led-light-color': null,
-  });
+let valueSubscription: Subscription;
 
-  let valueSubscription: Subscription;
+const timestampFormat = 'dd.MM.yyyy HH:mm:ss';
 
-  const timestampFormat = 'dd.MM.yyyy HH:mm:ss';
-
-  $effect(() => {
-    if (isObservable(signalValue)) {
-      valueSubscription?.unsubscribe();
-      valueSubscription = signalValue.subscribe((value) => {
-        displaySignalValue(signal, value);
-      });
-    } else {
-      displaySignalValue(signal, signalValue);
-    }
-
-    return () => {
-      if (valueSubscription) {
-        valueSubscription.unsubscribe();
-      }
-      console.log("cleanup");
-    };
-  });
-
-  function displaySignalValue(signal: Signal, signalValue: SignalLiveValue): void {
-    noValue = !signalValue || (!signalValue.value && signalValue.value !== 0);
-    
-
-    if (noValue) return;
-
-    timestamp = formatTimestamp(signalValue.timestamp);
-
-    createTooltip(signal, signalValue);
-
-    if (SignalUtils.isAnalog(signal) || SignalUtils.isCounter(signal)) {
-      displayAnalogValue(signal, signalValue);
-    } else if (SignalUtils.isDigital(signal)) {
-      displayDigitalValue(signal, signalValue);
-    } else if (SignalUtils.isUniversal(signal)) {
-      displayUniservalValue(signal, signalValue);
-    }
+$effect(() => {
+  if (isObservable(signalValue)) {
+    valueSubscription?.unsubscribe();
+    valueSubscription = signalValue.subscribe(value => {
+      displaySignalValue(signal, value);
+    });
+  } else {
+    displaySignalValue(signal, signalValue);
   }
 
-  function displayAnalogValue(signal: Signal, signalValue: SignalLiveValue): void {
-    tooltip = formatTimestamp(signalValue.timestamp);
+  return () => {
+    if (valueSubscription) {
+      valueSubscription.unsubscribe();
+    }
+    console.log('cleanup');
+  };
+});
 
-    const analogSettings = signal.Settings as SignalAnalogSettings;
-    
-    stringValue =
-      new Intl.NumberFormat('de-DE', {maximumFractionDigits: (analogSettings?.DecimalPlaces?.Value ?? 2)}).format(signalValue.value) + ' ' + analogSettings?.Unit?.Value;
+function displaySignalValue(signal: Signal, signalValue: SignalLiveValue): void {
+  noValue = !signalValue || (!signalValue.value && signalValue.value !== 0);
+
+  if (noValue) return;
+
+  timestamp = formatTimestamp(signalValue.timestamp);
+
+  createTooltip(signal, signalValue);
+
+  if (SignalUtils.isAnalog(signal) || SignalUtils.isCounter(signal)) {
+    displayAnalogValue(signal, signalValue);
+  } else if (SignalUtils.isDigital(signal)) {
+    displayDigitalValue(signal, signalValue);
+  } else if (SignalUtils.isUniversal(signal)) {
+    displayUniservalValue(signal, signalValue);
   }
+}
 
-  function displayDigitalValue(signal: Signal, signalValue: SignalLiveValue): void {
+function displayAnalogValue(signal: Signal, signalValue: SignalLiveValue): void {
+  tooltip = formatTimestamp(signalValue.timestamp);
+
+  const analogSettings = signal.Settings as SignalAnalogSettings;
+
+  stringValue =
+    new Intl.NumberFormat('de-DE', {
+      maximumFractionDigits: analogSettings?.DecimalPlaces?.Value ?? 2,
+    }).format(signalValue.value) +
+    ' ' +
+    analogSettings?.Unit?.Value;
+}
+
+function displayDigitalValue(signal: Signal, signalValue: SignalLiveValue): void {
+  const digitalSettings = signal.Settings as SignalDigitalSettings;
+
+  boolValue = signalValue?.value >= 1;
+
+  const color = boolValue
+    ? digitalSettings.DigitalTrueColor.Value
+    : digitalSettings.DigitalFalseColor.Value;
+  ledStyle['led-color'] = color;
+  ledStyle['led-light-color'] = ColorUtils.LightenDarkenColor(color, 5);
+}
+
+function displayUniservalValue(signal: Signal, signalValue: SignalLiveValue): void {
+  stringValue = signalValue?.value;
+}
+
+function createTooltip(signal: Signal, signalValue: SignalLiveValue): void {
+  tooltip = timestamp;
+  if (SignalUtils.isDigital(signal)) {
     const digitalSettings = signal.Settings as SignalDigitalSettings;
-
-    boolValue = signalValue?.value >= 1;
-
-    const color = boolValue ? digitalSettings.DigitalTrueColor.Value : digitalSettings.DigitalFalseColor.Value;
-    ledStyle['led-color'] = color;
-    ledStyle['led-light-color'] = ColorUtils.LightenDarkenColor(color, 5);
+    tooltip = boolValue
+      ? digitalSettings.DigitalTrueCaption.Value
+      : digitalSettings.DigitalFalseCaption.Value + ' - ' + tooltip;
   }
+}
 
-  function displayUniservalValue(signal: Signal, signalValue: SignalLiveValue): void {
-    stringValue = signalValue?.value;
+function formatTimestamp(value: Date | string | number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '';
   }
-
-  function createTooltip(signal: Signal, signalValue: SignalLiveValue): void {
-    tooltip = timestamp;
-    if (SignalUtils.isDigital(signal)) {
-      const digitalSettings = signal.Settings as SignalDigitalSettings;
-      tooltip = boolValue
-        ? digitalSettings.DigitalTrueCaption.Value
-        : digitalSettings.DigitalFalseCaption.Value + ' - ' + tooltip;
-    }
-  }
-
-  function formatTimestamp(value: Date | string | number | null | undefined): string {
-    if (value === null || value === undefined) {
-      return '';
-    }
-    const dateTime = value instanceof Date
+  const dateTime =
+    value instanceof Date
       ? DateTime.fromJSDate(value)
       : typeof value === 'number'
         ? DateTime.fromMillis(value)
         : DateTime.fromISO(value);
-    return dateTime.setLocale('de').toFormat(timestampFormat);
-  }
+  return dateTime.setLocale('de').toFormat(timestampFormat);
+}
 
-  
-  let cssLedStyle = $derived(Object.entries(ledStyle)
+const cssLedStyle = $derived(
+  Object.entries(ledStyle)
     .map(([key, value]) => `--${key}:${value}`)
-    .join(';'));
+    .join(';'),
+);
 </script>
 
 <main>

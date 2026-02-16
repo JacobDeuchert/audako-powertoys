@@ -1,302 +1,348 @@
 <script lang="ts">
-  import Dialog, { Content, InitialFocus } from '@smui/dialog';
-  import IconButton from '@smui/icon-button';
-  import Textfield from '@smui/textfield';
-  import List, { Item, Separator, Text, Graphic } from '@smui/list';
-  import { debounceTime, filter, first, map, Subject } from 'rxjs';
-  import { catchPromise } from '../../../utils/promise-utils';
-  import { SearchService } from './search.service';
-  import {
-    buildStoredSearchResultCacheKey,
-    isStoredSearchResult,
-    materializeStoredSearchResult,
-  } from './search-results';
-  import type {
-    CategorizedSearchResults,
-    SearchCategory,
-    SearchResult,
-    StoredSearchResult,
-  } from './search-results';
-  import { DomUtils } from '../../../utils/dom-utils';
+import Dialog, { Content, InitialFocus } from '@smui/dialog';
+import IconButton from '@smui/icon-button';
+import List, { Graphic, Item, Separator, Text } from '@smui/list';
+import Textfield from '@smui/textfield';
+import { EntityIcons, type EntityType } from 'audako-core-components';
+import { debounceTime, filter, first, map, Subject } from 'rxjs';
+import { DomUtils } from '../../../utils/dom-utils';
+import { catchPromise } from '../../../utils/promise-utils';
+import { SearchService } from './search.service';
+import type {
+  CategorizedSearchResults,
+  SearchCategory,
+  SearchResult,
+  StoredSearchResult,
+} from './search-results';
+import {
+  buildStoredSearchResultCacheKey,
+  isStoredSearchResult,
+  materializeStoredSearchResult,
+} from './search-results';
 
-  interface DisplayedCategorySearchResults {
-    category: SearchCategory;
-    displayedResults: SearchResult[];
-    totalResults: SearchResult[];
+interface DisplayedCategorySearchResults {
+  category: SearchCategory;
+  displayedResults: SearchResult[];
+  totalResults: SearchResult[];
+}
+
+type CachedSelectedResult = StoredSearchResult;
+
+const SELECTED_RESULTS_STORAGE_KEY = 'audako.search.selected-results';
+const MAX_SELECTED_RESULTS = 12;
+
+const initialSelectedResults = loadSelectedResults();
+
+const searchService = new SearchService();
+
+let displayedResults = $state<DisplayedCategorySearchResults[]>(
+  getDisplayedSelectedResults(initialSelectedResults),
+);
+
+let searchOpen = $state<boolean>(false);
+let searchString = $state<string>('');
+
+let selectedResultsCache = $state<CachedSelectedResult[]>(initialSelectedResults);
+
+let inputComponent: any = null;
+let listComponent: any;
+
+const searchChanged$: Subject<string> = new Subject<string>();
+const emptyStateText = $derived(getEmptyStateText(searchString, displayedResults));
+
+$effect(() => {
+  searchChanged$.next(searchString);
+});
+
+searchChanged$
+  .asObservable()
+  .pipe(
+    debounceTime(300),
+    filter(x => typeof x === 'string'),
+    map(search => search.trim()),
+  )
+  .subscribe(async queryString => {
+    if (!queryString) {
+      displayedResults = getDisplayedSelectedResults(selectedResultsCache);
+      return;
+    }
+
+    if (queryString.length <= 1) {
+      displayedResults = [];
+      return;
+    }
+
+    const normalizedSearchString = queryString.toLowerCase();
+    const [searchResults, error] = await catchPromise(searchService.search(normalizedSearchString));
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    displayedResults = getDisplayedResults(searchResults);
+  });
+
+window.addEventListener('keydown', (event: KeyboardEvent) => {
+  if (event.ctrlKey && event.code === 'Space') {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    searchOpen = true;
+    focusSearchInput(true);
+    return;
   }
 
-  type CachedSelectedResult = StoredSearchResult;
+  if (!searchOpen) {
+    return;
+  }
 
-  const SELECTED_RESULTS_STORAGE_KEY = 'audako.search.selected-results';
-  const MAX_SELECTED_RESULTS = 12;
-
-  const initialSelectedResults = loadSelectedResults();
-
-  
-  const searchService = new SearchService();
-
-  let displayedResults = $state<DisplayedCategorySearchResults[]>(getDisplayedSelectedResults(initialSelectedResults));
-
-  let searchOpen = $state<boolean>(false);
-  let searchString = $state<string>('');
-
-  let selectedResultsCache = $state<CachedSelectedResult[]>(initialSelectedResults);
-
-  let inputComponent = $state<any>(null);
-  let listComponent: any;
-
-  let searchChanged$: Subject<string> = new Subject<string>();
-
-  $effect(() => {
-    searchChanged$.next(searchString);
-  });
-
-  searchChanged$
-    .asObservable()
-    .pipe(
-      debounceTime(300),
-      filter((x) => typeof x === 'string'),
-      map((search) => search.trim()),
-    )
-    .subscribe(async (queryString) => {
-      if (!queryString) {
-        displayedResults = getDisplayedSelectedResults(selectedResultsCache);
-        return;
-      }
-
-      if (queryString.length <= 1) {
-        displayedResults = [];
-        return;
-      }
-
-      const normalizedSearchString = queryString.toLowerCase();
-      const [searchResults, error] = await catchPromise(searchService.search(normalizedSearchString));
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      displayedResults = getDisplayedResults(searchResults);
-    });
-
-  window.addEventListener('keydown', (event: KeyboardEvent) => {
-    if (event.ctrlKey && event.code === 'Space') {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      searchOpen = true;
-      focusSearchInput(true);
-      return;
-    }
-
-    if (!searchOpen) {
-      return;
-    }
-
-    if (event.code === 'Enter' && triggerFocusedResultAction()) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      return;
-    }
-
+  if (event.code === 'Enter' && triggerFocusedResultAction()) {
+    event.preventDefault();
     event.stopImmediatePropagation();
+    return;
+  }
 
-    const excludedFocusKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
-    if (!event.ctrlKey && !event.shiftKey && !event.altKey && !excludedFocusKeys.includes(event.code)) {
-      focusSearchInput();
+  event.stopImmediatePropagation();
+
+  const excludedFocusKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter'];
+  if (
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey &&
+    !excludedFocusKeys.includes(event.code)
+  ) {
+    focusSearchInput();
+  }
+});
+
+window.addEventListener('keyup', (event: KeyboardEvent) => {
+  if (!searchOpen) {
+    return;
+  }
+
+  event.stopImmediatePropagation();
+
+  const textFieldElement = inputComponent?.getElement?.();
+  const inputElement = textFieldElement?.getElementsByTagName('input').item(0);
+  const listElement = listComponent?.getElement?.();
+
+  if (event.code === 'ArrowDown') {
+    event.preventDefault();
+    const rootNode = inputElement?.getRootNode() as Document | ShadowRoot;
+    const activeElement = rootNode?.activeElement ?? document.activeElement;
+    const firstListElement = listElement?.getElementsByTagName('li').item(0);
+    if (firstListElement && activeElement === inputElement) {
+      firstListElement.focus();
     }
-  });
+  }
+});
 
-  window.addEventListener('keyup', (event: KeyboardEvent) => {
-    if (!searchOpen) {
-      return;
-    }
+function getDisplayedResults(
+  searchResults: CategorizedSearchResults,
+): DisplayedCategorySearchResults[] {
+  // display 4 of each category and 8 if only 1 category has results
+  // display max 16 results
 
-    event.stopImmediatePropagation();
+  const categoriesWithResults = searchResults.filter(x => x.results.length > 0);
 
-    const textFieldElement = inputComponent?.getElement?.();
-    const inputElement = textFieldElement?.getElementsByTagName('input').item(0);
-    const listElement = listComponent?.getElement?.();
+  const resultsPerCategory = categoriesWithResults.length > 1 ? 4 : 8;
 
-    if (event.code === 'ArrowDown') {
-      event.preventDefault();
-      const rootNode = inputElement?.getRootNode() as Document | ShadowRoot;
-      const activeElement = rootNode?.activeElement ?? document.activeElement;
-      const firstListElement = listElement?.getElementsByTagName('li').item(0);
-      if (firstListElement && activeElement === inputElement) {
+  return searchResults.map(x => ({
+    displayedResults: x.results.slice(0, resultsPerCategory),
+    category: x.category,
+    totalResults: x.results,
+  }));
+}
+
+function showAllResults(category: SearchCategory) {
+  const result = displayedResults.find(x => x.category === category);
+  if (!result) {
+    return;
+  }
+
+  displayedResults = [
+    {
+      category,
+      displayedResults: result.totalResults,
+      totalResults: result.totalResults,
+    },
+  ];
+
+  const listElement = listComponent.getElement();
+  DomUtils.watchForDomChanges(listElement)
+    .pipe(first())
+    .subscribe(() => {
+      const firstListElement = listElement
+        .getElementsByTagName('li')
+        .item(result.displayedResults.length);
+      if (firstListElement) {
         firstListElement.focus();
       }
+    });
+}
+
+function focusSearchInput(select: boolean = false) {
+  const textField = inputComponent?.getElement();
+
+  if (textField) {
+    const input = textField.getElementsByTagName('input').item(0);
+    const rootNode = input?.getRootNode() as Document | ShadowRoot;
+    const activeElement = rootNode?.activeElement ?? document.activeElement;
+
+    if (activeElement !== input) {
+      input.focus();
+      if (select) {
+        input.select();
+      }
     }
-  });
+  }
+}
 
-  function getDisplayedResults(searchResults: CategorizedSearchResults): DisplayedCategorySearchResults[] {
-    // display 4 of each category and 8 if only 1 category has results
-    // display max 16 results
+function triggerFocusedResultAction(): boolean {
+  const listElement = listComponent?.getElement?.();
+  const rootNode = listElement?.getRootNode() as Document | ShadowRoot;
+  const activeElement = (rootNode?.activeElement ?? document.activeElement) as HTMLElement | null;
 
-    const categoriesWithResults = searchResults.filter((x) => x.results.length > 0);
-
-    const resultsPerCategory = categoriesWithResults.length > 1 ? 4 : 8;
-
-    return searchResults.map((x) => ({
-      displayedResults: x.results.slice(0, resultsPerCategory),
-      category: x.category,
-      totalResults: x.results,
-    }));
+  if (!listElement || !activeElement || !listElement.contains(activeElement)) {
+    return false;
   }
 
-  function showAllResults(category: SearchCategory) {
-    const result = displayedResults.find((x) => x.category === category);
-    if (!result) {
+  const focusInsideActionButton = activeElement.closest(
+    '.action-buttons, .mdc-icon-button, button',
+  );
+  if (focusInsideActionButton) {
+    return false;
+  }
+
+  const focusedListItem = activeElement.closest('li') as HTMLElement | null;
+  if (!focusedListItem || !listElement.contains(focusedListItem)) {
+    return false;
+  }
+
+  focusedListItem.click();
+  return true;
+}
+
+function selectResult(result: SearchResult): void {
+  cacheSelectedResult(result);
+  result.defaultAction();
+}
+
+function getDisplayedSelectedResults(
+  selectedResults: CachedSelectedResult[],
+): DisplayedCategorySearchResults[] {
+  const groupedResults = new Map<SearchCategory, SearchResult[]>();
+
+  selectedResults.forEach(storedResult => {
+    const materializedResult = materializeStoredSearchResult(storedResult);
+    if (!materializedResult) {
       return;
     }
 
-    displayedResults = [
-      {
-        category,
-        displayedResults: result.totalResults,
-        totalResults: result.totalResults,
-      },
-    ];
-
-    const listElement = listComponent.getElement();
-    DomUtils.watchForDomChanges(listElement)
-      .pipe(first())
-      .subscribe(() => {
-        const firstListElement = listElement.getElementsByTagName('li').item(result.displayedResults.length);
-        if (firstListElement) {
-          firstListElement.focus();
-        }
-      });
-  }
-
-  function focusSearchInput(select: boolean = false) {
-    const textField = inputComponent?.getElement();
-
-    if (textField) {
-      const input = textField.getElementsByTagName('input').item(0);
-      const rootNode = input?.getRootNode() as Document | ShadowRoot;
-      const activeElement = rootNode?.activeElement ?? document.activeElement;
-
-      if (activeElement !== input) {
-        input.focus();
-        if (select) {
-          input.select();
-        }
-      }
-    }
-  }
-
-  function triggerFocusedResultAction(): boolean {
-    const listElement = listComponent?.getElement?.();
-    const rootNode = listElement?.getRootNode() as Document | ShadowRoot;
-    const activeElement = (rootNode?.activeElement ?? document.activeElement) as HTMLElement | null;
-
-    if (!listElement || !activeElement || !listElement.contains(activeElement)) {
-      return false;
+    if (!groupedResults.has(storedResult.category)) {
+      groupedResults.set(storedResult.category, []);
     }
 
-    const focusInsideActionButton = activeElement.closest('.action-buttons, .mdc-icon-button, button');
-    if (focusInsideActionButton) {
-      return false;
-    }
+    groupedResults.get(storedResult.category).push(materializedResult);
+  });
 
-    const focusedListItem = activeElement.closest('li') as HTMLElement | null;
-    if (!focusedListItem || !listElement.contains(focusedListItem)) {
-      return false;
-    }
+  return Array.from(groupedResults.entries()).map(([category, results]) => ({
+    category,
+    displayedResults: results,
+    totalResults: results,
+  }));
+}
 
-    focusedListItem.click();
-    return true;
+function getEmptyStateText(
+  query: string,
+  results: DisplayedCategorySearchResults[],
+): string | null {
+  const trimmedQuery = query.trim();
+
+  if (trimmedQuery.length === 0 && results.length === 0) {
+    return 'No recent selections found. Type at least 2 characters to search.';
   }
 
-  function selectResult(result: SearchResult): void {
-    cacheSelectedResult(result);
-    result.defaultAction();
+  if (trimmedQuery.length === 1) {
+    return 'Type at least 2 characters to search.';
   }
 
-  function getDisplayedSelectedResults(selectedResults: CachedSelectedResult[]): DisplayedCategorySearchResults[] {
-    const groupedResults = new Map<SearchCategory, SearchResult[]>();
-
-    selectedResults.forEach((storedResult) => {
-      const materializedResult = materializeStoredSearchResult(storedResult);
-      if (!materializedResult) {
-        return;
-      }
-
-      if (!groupedResults.has(storedResult.category)) {
-        groupedResults.set(storedResult.category, []);
-      }
-
-      groupedResults.get(storedResult.category).push(materializedResult);
-    });
-
-    return Array.from(groupedResults.entries()).map(([category, results]) => ({
-      category,
-      displayedResults: results,
-      totalResults: results,
-    }));
+  if (trimmedQuery.length > 1 && results.length === 0) {
+    return `No results found for "${trimmedQuery}".`;
   }
 
-  function cacheSelectedResult(result: SearchResult): void {
-    const selectedResult = result.toStoredSearchResult(Date.now());
+  return null;
+}
 
-    const resultCacheKey = buildStoredSearchResultCacheKey(selectedResult);
-    selectedResultsCache = [
-      selectedResult,
-      ...selectedResultsCache.filter(
-        (cachedResult) => buildStoredSearchResultCacheKey(cachedResult) !== resultCacheKey,
-      ),
-    ].slice(0, MAX_SELECTED_RESULTS);
-
-    persistSelectedResults(selectedResultsCache);
+function getSearchResultIcon(result: SearchResult): string {
+  if (result.category === 'Tenant') {
+    return result.icon;
   }
 
-  function loadSelectedResults(): CachedSelectedResult[] {
-    try {
-      const storedData = localStorage.getItem(SELECTED_RESULTS_STORAGE_KEY);
-      if (!storedData) {
-        return [];
-      }
+  return EntityIcons[result.category as EntityType] ?? result.icon;
+}
 
-      const parsedData = JSON.parse(storedData);
-      if (!Array.isArray(parsedData)) {
-        return [];
-      }
+function cacheSelectedResult(result: SearchResult): void {
+  const selectedResult = result.toStoredSearchResult(Date.now());
 
-      return parsedData
-        .filter((entry) => isStoredSearchResult(entry))
-        .filter((entry) => !!materializeStoredSearchResult(entry))
-        .sort((a, b) => (b.selectedAt ?? 0) - (a.selectedAt ?? 0))
-        .slice(0, MAX_SELECTED_RESULTS);
-    } catch {
+  const resultCacheKey = buildStoredSearchResultCacheKey(selectedResult);
+  selectedResultsCache = [
+    selectedResult,
+    ...selectedResultsCache.filter(
+      cachedResult => buildStoredSearchResultCacheKey(cachedResult) !== resultCacheKey,
+    ),
+  ].slice(0, MAX_SELECTED_RESULTS);
+
+  persistSelectedResults(selectedResultsCache);
+}
+
+function loadSelectedResults(): CachedSelectedResult[] {
+  try {
+    const storedData = localStorage.getItem(SELECTED_RESULTS_STORAGE_KEY);
+    if (!storedData) {
       return [];
     }
-  }
 
-  function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
-    try {
-      localStorage.setItem(SELECTED_RESULTS_STORAGE_KEY, JSON.stringify(selectedResults));
-    } catch {
+    const parsedData = JSON.parse(storedData);
+    if (!Array.isArray(parsedData)) {
+      return [];
     }
+
+    return parsedData
+      .filter(entry => isStoredSearchResult(entry))
+      .filter(entry => !!materializeStoredSearchResult(entry))
+      .sort((a, b) => (b.selectedAt ?? 0) - (a.selectedAt ?? 0))
+      .slice(0, MAX_SELECTED_RESULTS);
+  } catch {
+    return [];
   }
+}
+
+function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
+  try {
+    localStorage.setItem(SELECTED_RESULTS_STORAGE_KEY, JSON.stringify(selectedResults));
+  } catch {}
+}
 </script>
 
 <Dialog bind:open={searchOpen} class="search-dialog">
   <Content class="search-dialog-content">
-    <Textfield
-      class="search-text-field"
-      use={[InitialFocus]}
-      style="width: 100%"
-      bind:value={searchString}
-      variant="outlined"
-      type="text"
-      label="Search"
-      bind:this={inputComponent}
-    />
+    <div class="search-input-container">
+      <Textfield
+        class="search-text-field"
+        use={[InitialFocus]}
+        style="width: 100%"
+        bind:value={searchString}
+        variant="outlined"
+        type="text"
+        label="Search"
+        bind:this={inputComponent}
+      />
+    </div>
 
     <div class="result-list-container">
-      {#if searchString.trim().length === 0 && displayedResults.length === 0}
+      {#if emptyStateText}
         <div class="empty-state">
-          No recent selections found. Type at least 2 characters to search.
+          {emptyStateText}
         </div>
       {:else}
         <List bind:this={listComponent} class="result-list">
@@ -306,7 +352,7 @@
             </div>
             {#each categoryResults.displayedResults as result}
               <Item class="list-item" onclick={() => selectResult(result)}>
-                <Graphic class="search-icon {result.icon}" />
+                <Graphic class="search-icon {getSearchResultIcon(result)}" />
                 <Text class="title-text">
                   {result.title}
                 </Text>
@@ -370,6 +416,11 @@
   .result-list-container {
     overflow-y: auto;
     max-height: min(56vh, 560px);
+  }
+
+  .search-input-container {
+    padding-top: 6px;
+    padding-inline: 4px;
   }
 
   .category-label {

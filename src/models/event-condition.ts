@@ -1,12 +1,12 @@
-import { ConfigurationEntity, Field } from 'audako-core-components';
+import { ConfigurationEntity, type Field } from 'audako-core-components';
 
 export class EventCondition extends ConfigurationEntity {
-  public Settings: ConditionSettings; 
+  public Settings: ConditionSettings;
 }
 
 export enum EventConditionSettingsType {
-  SignalConditionSettings = "SignalConditionSettings",
-  DataConnectionFailureConditionSettings = "DataConnectionFailureConditionSettings"
+  SignalConditionSettings = 'SignalConditionSettings',
+  DataConnectionFailureConditionSettings = 'DataConnectionFailureConditionSettings',
 }
 
 export class ConditionSettings {
@@ -26,9 +26,7 @@ export class SignalConditionSettings extends ConditionSettings {
 }
 
 export class DataConnectionFailureConditionSettings extends ConditionSettings {
-
   public MaxOfflineTimeout: Field<number>;
-  
-  public DataConnectionId: Field<string>;
 
+  public DataConnectionId: Field<string>;
 }
