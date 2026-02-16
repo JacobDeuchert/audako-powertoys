@@ -3,8 +3,7 @@
 node_modules
 
 # Build outputs
-**/build
-dist/build
+
 
 # Development
 .vite
