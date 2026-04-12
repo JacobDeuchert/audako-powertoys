@@ -3,18 +3,20 @@ import type { Component } from 'svelte';
 import { AppIcons, AudakoApp } from '../../../models/audako-apps';
 import { UrlUtils } from '../../../utils/url-utils';
 
-export type SearchCategory = EntityType | 'Tenant';
-export type SearchResultType = 'tenant' | 'group' | 'generic-entity' | 'signal';
+export type SearchCategory = EntityType | 'Tenant' | 'Command';
+export type SearchResultType = 'tenant' | 'group' | 'generic-entity' | 'signal' | 'command';
 
 const TENANT_CONTEXT_TYPE = 'tenant.v1';
 const GROUP_CONTEXT_TYPE = 'group.v1';
 const GENERIC_ENTITY_CONTEXT_TYPE = 'generic-entity.v1';
 const SIGNAL_CONTEXT_TYPE = 'signal.v1';
+const COMMAND_CONTEXT_TYPE = 'command.v1';
 type SearchResultContextType =
   | typeof TENANT_CONTEXT_TYPE
   | typeof GROUP_CONTEXT_TYPE
   | typeof GENERIC_ENTITY_CONTEXT_TYPE
-  | typeof SIGNAL_CONTEXT_TYPE;
+  | typeof SIGNAL_CONTEXT_TYPE
+  | typeof COMMAND_CONTEXT_TYPE;
 
 export type CategorySearchResult = { category: SearchCategory; results: SearchResult[] };
 export type CategorizedSearchResults = CategorySearchResult[];
@@ -28,6 +30,7 @@ export interface StoredSearchResult {
   type: SearchResultType;
   category: SearchCategory;
   title: string;
+  subtitle?: string;
   infoText?: string;
   icon: string;
   context: unknown;
@@ -61,6 +64,7 @@ export class CallbackResultAction<
 
 interface SearchResultParams<TContext extends Record<string, any>> {
   title: string;
+  subtitle?: string;
   icon: string;
   infoText?: string;
   tooltip: () => Promise<string>;
@@ -71,6 +75,7 @@ interface SearchResultParams<TContext extends Record<string, any>> {
 
 export abstract class SearchResult<TContext extends Record<string, any> = Record<string, any>> {
   public readonly title: string;
+  public readonly subtitle?: string;
   public readonly icon: string;
   public readonly infoText?: string;
   public readonly tooltip: () => Promise<string>;
@@ -80,6 +85,7 @@ export abstract class SearchResult<TContext extends Record<string, any> = Record
 
   protected constructor(params: SearchResultParams<TContext>) {
     this.title = params.title;
+    this.subtitle = params.subtitle;
     this.icon = params.icon;
     this.infoText = params.infoText;
     this.tooltip = params.tooltip;
@@ -106,6 +112,7 @@ export abstract class SearchResult<TContext extends Record<string, any> = Record
       type: this.type,
       category: this.category,
       title: this.title,
+      subtitle: this.subtitle,
       infoText: this.infoText,
       icon: this.icon,
       context: this.serializeContext(this.context),
@@ -132,6 +139,7 @@ export class TenantSearchResult extends SearchResult<TenantSearchResultContext> 
 
   constructor(params: {
     title: string;
+    subtitle?: string;
     icon: string;
     infoText?: string;
     tooltip?: () => Promise<string>;
@@ -153,6 +161,7 @@ export class TenantSearchResult extends SearchResult<TenantSearchResultContext> 
 
     super({
       title: params.title,
+      subtitle: params.subtitle,
       icon: params.icon,
       infoText: params.infoText,
       tooltip: params.tooltip ?? buildDefaultTooltip(params.title),
@@ -191,6 +200,7 @@ export class GroupSearchResult extends SearchResult<GroupSearchResultContext> {
 
   constructor(params: {
     title: string;
+    subtitle?: string;
     icon: string;
     infoText?: string;
     tooltip?: () => Promise<string>;
@@ -207,6 +217,7 @@ export class GroupSearchResult extends SearchResult<GroupSearchResultContext> {
 
     super({
       title: params.title,
+      subtitle: params.subtitle,
       icon: params.icon,
       infoText: params.infoText,
       tooltip: params.tooltip ?? buildDefaultTooltip(params.title),
@@ -248,6 +259,7 @@ export class GenericEntitySearchResult extends SearchResult<GenericEntitySearchR
   constructor(params: {
     category: SearchCategory;
     title: string;
+    subtitle?: string;
     icon: string;
     infoText?: string;
     tooltip?: () => Promise<string>;
@@ -255,6 +267,7 @@ export class GenericEntitySearchResult extends SearchResult<GenericEntitySearchR
   }) {
     super({
       title: params.title,
+      subtitle: params.subtitle,
       icon: params.icon,
       infoText: params.infoText,
       tooltip: params.tooltip ?? buildDefaultTooltip(params.title),
@@ -300,6 +313,7 @@ export class SignalSearchResult extends SearchResult<SignalSearchResultContext> 
 
   constructor(params: {
     title: string;
+    subtitle?: string;
     icon: string;
     infoText?: string;
     tooltip?: () => Promise<string>;
@@ -308,6 +322,7 @@ export class SignalSearchResult extends SearchResult<SignalSearchResultContext> 
   }) {
     super({
       title: params.title,
+      subtitle: params.subtitle,
       icon: params.icon,
       infoText: params.infoText,
       tooltip: params.tooltip ?? buildDefaultTooltip(params.title),
@@ -328,6 +343,51 @@ export class SignalSearchResult extends SearchResult<SignalSearchResultContext> 
 
   protected onDefaultAction(context: SignalSearchResultContext): void {
     UrlUtils.openApp(AudakoApp.Configuration, context.tenantId, context.groupId, context.signalId);
+  }
+}
+
+export interface CommandSearchResultContext {
+  commandId: string;
+}
+
+interface SerializedCommandSearchResultContext extends CommandSearchResultContext {
+  contextType: typeof COMMAND_CONTEXT_TYPE;
+}
+
+export class CommandSearchResult extends SearchResult<CommandSearchResultContext> {
+  public readonly type: SearchResultType = 'command';
+  public readonly category: SearchCategory = 'Command';
+  private readonly _onExecute: (context: CommandSearchResultContext) => void;
+
+  constructor(params: {
+    title: string;
+    subtitle?: string;
+    icon: string;
+    context: CommandSearchResultContext;
+    onExecute: (context: CommandSearchResultContext) => void;
+  }) {
+    super({
+      title: params.title,
+      subtitle: params.subtitle,
+      icon: params.icon,
+      tooltip: () => Promise.resolve(params.title),
+      context: params.context,
+      extraActions: [],
+    });
+    this._onExecute = params.onExecute;
+  }
+
+  protected override serializeContext(
+    context: CommandSearchResultContext,
+  ): SerializedCommandSearchResultContext {
+    return {
+      contextType: COMMAND_CONTEXT_TYPE,
+      ...context,
+    };
+  }
+
+  protected onDefaultAction(context: CommandSearchResultContext): void {
+    this._onExecute(context);
   }
 }
 
@@ -389,6 +449,7 @@ export const materializeStoredSearchResult = (
 
       return new TenantSearchResult({
         title: storedResult.title,
+        subtitle: storedResult.subtitle,
         icon: storedResult.icon,
         infoText: storedResult.infoText,
         context,
@@ -405,6 +466,7 @@ export const materializeStoredSearchResult = (
 
       return new GroupSearchResult({
         title: storedResult.title,
+        subtitle: storedResult.subtitle,
         icon: storedResult.icon,
         infoText: storedResult.infoText,
         context,
@@ -422,6 +484,7 @@ export const materializeStoredSearchResult = (
       return new GenericEntitySearchResult({
         category: storedResult.category,
         title: storedResult.title,
+        subtitle: storedResult.subtitle,
         icon: storedResult.icon,
         infoText: storedResult.infoText,
         context,
@@ -438,10 +501,15 @@ export const materializeStoredSearchResult = (
 
       return new SignalSearchResult({
         title: storedResult.title,
+        subtitle: storedResult.subtitle,
         icon: storedResult.icon,
         infoText: storedResult.infoText,
         context,
       });
+    }
+    case 'command': {
+      // Commands are not restorable from storage (they require runtime callbacks)
+      return null;
     }
     default:
       return null;

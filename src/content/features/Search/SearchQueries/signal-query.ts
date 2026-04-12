@@ -63,8 +63,11 @@ export class SignalQuery extends SearchQuery {
           },
         };
 
+        const subtitle = await this.resolveSubtitle(tenant?.Name, signal.Path ?? []);
+
         return new SignalSearchResult({
           title: signal.Name.Value,
+          subtitle,
           infoText: tenant?.Name,
           icon: EntityIcons[EntityType.Signal],
           tooltip: () => this.entityNameService.resolvePathName(signal.Path ?? []),

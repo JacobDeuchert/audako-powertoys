@@ -2,6 +2,7 @@ import { EntityType } from 'audako-core-components';
 import { BehaviorSubject, filter, firstValueFrom } from 'rxjs';
 import { AudakoApp } from '../../../models/audako-apps';
 import { UrlUtils } from '../../../utils/url-utils';
+import { CommandQuery } from './SearchQueries/command-query';
 import { GenericEntityQuery } from './SearchQueries/generic-entity-query';
 import { GroupQuery } from './SearchQueries/group-query';
 import type { SearchQuery } from './SearchQueries/search-query';
@@ -17,6 +18,10 @@ export class SearchService {
     EntityType.Group,
     EntityType.Dashboard,
     EntityType.Signal,
+    EntityType.Formula,
+    EntityType.DataSource,
+    EntityType.DataConnection,
+    'Command',
   ];
 
   private _searchInitialized$: BehaviorSubject<boolean>;
@@ -26,7 +31,7 @@ export class SearchService {
   constructor() {
     this._searchInitialized$ = new BehaviorSubject<boolean>(false);
 
-    this._searchRegex = /(>)?([A-Z]:)?(.*)/i;
+    this._searchRegex = /(>)?(!)?([A-Z]:)?(.*)/i;
 
     this._initSearch();
   }
@@ -41,36 +46,47 @@ export class SearchService {
     const tenantRestriction: string = tenantRestrictedSearch
       ? UrlUtils.getTenantIdFromUrl(window.location.pathname)
       : undefined;
-    const categoryRestriction: string = searchMatches[2];
+    const commandOnlySearch: boolean = searchMatches[2] === '!';
+    const categoryRestriction: string = commandOnlySearch ? undefined : searchMatches[3];
 
-    const searchTerm = searchMatches[3]?.trim() ?? '';
+    const searchTerm = searchMatches[4]?.trim() ?? '';
 
-    const categorizedSearchResults: CategorizedSearchResults = [];
+    const categorizedSearchResults = await Promise.all(
+      this._categoryOrder.map(async category => {
+        if (!this._allowedCategory(category, categoryRestriction, commandOnlySearch)) {
+          return null;
+        }
 
-    for (const category of this._categoryOrder) {
-      let categoryResults: SearchResult[] = [];
+        const searchQuery = this.categorieQueries[category];
+        const categoryResults: SearchResult[] = await searchQuery.query(
+          searchTerm,
+          tenantRestriction,
+        );
 
-      if (!this._allowedCategory(category, categoryRestriction)) {
-        continue;
-      }
+        if (!categoryResults?.length) {
+          return null;
+        }
 
-      const searchQuery = this.categorieQueries[category];
-
-      categoryResults = await searchQuery.query(searchTerm, tenantRestriction);
-
-      if (categoryResults?.length > 0) {
-        categorizedSearchResults.push({
-          category: category,
+        return {
+          category,
           results: categoryResults,
-        });
-      }
-    }
+        };
+      }),
+    );
 
-    return categorizedSearchResults;
+    return categorizedSearchResults.filter(
+      (result): result is CategorizedSearchResults[number] => result !== null,
+    );
   }
 
-  private _allowedCategory(category: SearchCategory, categoryRestriction: string): boolean {
-    categoryRestriction = categoryRestriction?.toUpperCase();
+  private _allowedCategory(
+    category: SearchCategory,
+    categoryRestriction: string,
+    commandOnlySearch: boolean = false,
+  ): boolean {
+    if (commandOnlySearch) {
+      return category === 'Command';
+    }
 
     const restrictionPrefixes: { [p: string]: SearchCategory } = {
       'T:': 'Tenant',
@@ -96,6 +112,16 @@ export class SearchService {
       [EntityType.Group]: new GroupQuery(),
       [EntityType.Dashboard]: new GenericEntityQuery(EntityType.Dashboard, AudakoApp.Dashboard),
       [EntityType.Signal]: new SignalQuery(),
+      [EntityType.Formula]: new GenericEntityQuery(EntityType.Formula, AudakoApp.Configuration),
+      [EntityType.DataSource]: new GenericEntityQuery(
+        EntityType.DataSource,
+        AudakoApp.Configuration,
+      ),
+      [EntityType.DataConnection]: new GenericEntityQuery(
+        EntityType.DataConnection,
+        AudakoApp.Configuration,
+      ),
+      ['Command']: new CommandQuery(),
     };
 
     this._searchInitialized$.next(true);

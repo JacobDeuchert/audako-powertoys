@@ -1,12 +1,54 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { build as esbuild } from 'esbuild';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PDF_WORKER_PATH = 'build/pdf.worker.min.mjs';
+const WEB_ACCESSIBLE_BUILD_RESOURCES = ['build/*.js', PDF_WORKER_PATH];
+
+const patchPdfWorkerRuntimeUrl = filePath => {
+  if (!existsSync(filePath)) {
+    return;
+  }
+
+  const fileContents = readFileSync(filePath, 'utf8');
+  const patchedContents = fileContents.replaceAll(
+    'new URL("/build/pdf.worker.min.mjs", import_meta.url).toString()',
+    `chrome.runtime.getURL("${PDF_WORKER_PATH}")`,
+  );
+
+  if (patchedContents !== fileContents) {
+    writeFileSync(filePath, patchedContents);
+  }
+};
+
+const ensurePdfWorkerIsWebAccessible = manifestPath => {
+  if (!existsSync(manifestPath)) {
+    return;
+  }
+
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const webAccessibleResources = manifest.web_accessible_resources ?? [];
+
+  for (const entry of webAccessibleResources) {
+    if (!Array.isArray(entry.resources)) {
+      continue;
+    }
+
+    for (const resource of WEB_ACCESSIBLE_BUILD_RESOURCES) {
+      if (!entry.resources.includes(resource)) {
+        entry.resources.push(resource);
+      }
+    }
+  }
+
+  manifest.web_accessible_resources = webAccessibleResources;
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+};
 
 const inlineContentScript = ({ isDebug } = { isDebug: false }) => ({
   name: 'inline-content-script',
@@ -39,7 +81,11 @@ const inlineContentScript = ({ isDebug } = { isDebug: false }) => ({
           '.css': 'empty',
         },
       });
+
+      patchPdfWorkerRuntimeUrl(target);
     }
+
+    ensurePdfWorkerIsWebAccessible(join(__dirname, 'dist', 'manifest.json'));
   },
 });
 

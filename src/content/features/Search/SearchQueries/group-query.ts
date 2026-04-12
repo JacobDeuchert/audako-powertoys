@@ -19,8 +19,11 @@ export class GroupQuery extends SearchQuery {
         const tenant = await this.getTenantForEntity(group);
         const tenantId = tenant?.Id ?? tenant?.Root ?? group.Path?.[0] ?? group.Id;
 
+        const subtitle = await this.resolveSubtitle(tenant?.Name, group.Path ?? []);
+
         return new GroupSearchResult({
           title: group.Name.Value,
+          subtitle,
           infoText: tenant?.Name,
           icon: this.DEFAULT_ICON,
           tooltip: () => this.entityNameService.resolvePathName(group.Path ?? []),

@@ -1,3 +1,4 @@
+import '@webcomponents/custom-elements';
 import './global.css';
 import '../../node_modules/svelte-material-ui/themes/svelte.css';
 // import for tsyringe
@@ -68,9 +69,11 @@ let app = null;
 
 async function initialize() {
   // check if another instance of audako-powertoys is running
-  if (!window['audako-powertoys']) {
-    window['audako-powertoys'] = true;
+  if (window['audako-powertoys']) {
+    return;
   }
+
+  window['audako-powertoys'] = true;
 
   const config = await BaseHttpService.requestHttpConfig(window.location.origin);
 

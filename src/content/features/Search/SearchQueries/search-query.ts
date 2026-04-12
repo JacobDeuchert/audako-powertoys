@@ -10,18 +10,22 @@ import {
 import type { SearchResult } from '../search-results';
 
 export abstract class SearchQuery {
-  protected tenantHttpService: TenantHttpService;
-  protected entityHttpService: EntityHttpService;
-  protected entityNameService: EntityNameService;
-  private tenantById: Map<string, TenantView>;
-  private tenantByEntityId: Map<string, TenantView>;
+  private _tenantHttpService: TenantHttpService | null = null;
+  private _entityHttpService: EntityHttpService | null = null;
+  private _entityNameService: EntityNameService | null = null;
+  private tenantById: Map<string, TenantView> = new Map();
+  private tenantByEntityId: Map<string, TenantView> = new Map();
 
-  constructor() {
-    this.tenantHttpService = resolveService(TenantHttpService);
-    this.entityHttpService = resolveService(EntityHttpService);
-    this.entityNameService = resolveService(EntityNameService);
-    this.tenantById = new Map();
-    this.tenantByEntityId = new Map();
+  protected get tenantHttpService(): TenantHttpService {
+    return (this._tenantHttpService ??= resolveService(TenantHttpService));
+  }
+
+  protected get entityHttpService(): EntityHttpService {
+    return (this._entityHttpService ??= resolveService(EntityHttpService));
+  }
+
+  protected get entityNameService(): EntityNameService {
+    return (this._entityNameService ??= resolveService(EntityNameService));
   }
 
   public abstract query(queryString: string, tenantRestriction?: string): Promise<SearchResult[]>;
@@ -122,5 +126,47 @@ export abstract class SearchQuery {
     if (tenant.Id === tenant.Root) {
       this.tenantByEntityId.set(tenant.Id, tenant);
     }
+  }
+
+  protected async resolveSubtitle(
+    tenantName: string | undefined,
+    idPath: string[],
+  ): Promise<string | undefined> {
+    if (!tenantName && (!idPath || idPath.length === 0)) {
+      return undefined;
+    }
+
+    const PATH_SEPARATOR = ' / ';
+    const MAX_PATH_SEGMENTS = 3;
+
+    let pathSegments: string[] = [];
+    if (idPath && idPath.length > 0) {
+      try {
+        const resolvedPath = await this.entityNameService.resolvePathName(idPath, PATH_SEPARATOR);
+        if (resolvedPath) {
+          pathSegments = resolvedPath
+            .split(PATH_SEPARATOR)
+            .filter(s => s.length > 0)
+            .slice(1); // skip first segment (tenant root), we use tenantName instead
+        }
+      } catch {
+        // path resolution failed, show tenant name only
+      }
+    }
+
+    const parts: string[] = [];
+
+    if (tenantName) {
+      parts.push(tenantName);
+    }
+
+    if (pathSegments.length > MAX_PATH_SEGMENTS) {
+      parts.push('\u2026');
+      parts.push(...pathSegments.slice(-MAX_PATH_SEGMENTS));
+    } else {
+      parts.push(...pathSegments);
+    }
+
+    return parts.length > 0 ? parts.join(PATH_SEPARATOR) : undefined;
   }
 }

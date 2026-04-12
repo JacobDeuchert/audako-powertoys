@@ -27,8 +27,10 @@
   "homepage": "https://github.com/JacobDeuchert/audako-powertoys#readme",
   "dependencies": {
     "@audako/chat-ui": "file:../audako-mcp-gateway/packages/chat-ui",
+    "@audako/contracts": "file:../audako-mcp-gateway/packages/contracts",
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@smui/common": "^8.0.3",
+    "@webcomponents/custom-elements": "^1.6.0",
     "@webcomponents/webcomponentsjs": "^2.8.0",
     "audako-core-components": "github:JacobDeuchert/audako-core-components",
     "axios": "^1.7.9",

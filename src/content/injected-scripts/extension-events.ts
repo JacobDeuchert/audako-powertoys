@@ -23,15 +23,14 @@ interface TypesOverviewComponent {
 function noopEntityEventHandler(_event: Event): void {}
 
 function handleEntityCreateEvent(event: CustomEvent): void {
-  if (UrlUtils.getCurrentApp() !== AudakoApp.Configuration) {
-    return;
-  }
-
   console.log(
     '[audako-powertoys] Received entity created event in extension world:',
     event.type,
     event.detail,
   );
+  if (UrlUtils.getCurrentApp() !== AudakoApp.Configuration) {
+    return;
+  }
 
   const sidebarComponent = ComponentUtils.getComponentByTagName(
     'audako4-sidebar',

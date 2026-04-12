@@ -1,7 +1,7 @@
 <script lang="ts">
 import Dialog, { Content, InitialFocus } from '@smui/dialog';
 import IconButton from '@smui/icon-button';
-import List, { Graphic, Item, Separator, Text } from '@smui/list';
+import List, { Item, Separator, Text } from '@smui/list';
 import Textfield from '@smui/textfield';
 import { EntityIcons, type EntityType } from 'audako-core-components';
 import { debounceTime, filter, first, map, Subject } from 'rxjs';
@@ -41,6 +41,7 @@ let displayedResults = $state<DisplayedCategorySearchResults[]>(
 
 let searchOpen = $state<boolean>(false);
 let searchString = $state<string>('');
+let isSearching = $state<boolean>(false);
 
 let selectedResultsCache = $state<CachedSelectedResult[]>(initialSelectedResults);
 
@@ -63,17 +64,21 @@ searchChanged$
   )
   .subscribe(async queryString => {
     if (!queryString) {
+      isSearching = false;
       displayedResults = getDisplayedSelectedResults(selectedResultsCache);
       return;
     }
 
     if (queryString.length <= 1) {
+      isSearching = false;
       displayedResults = [];
       return;
     }
 
+    isSearching = true;
     const normalizedSearchString = queryString.toLowerCase();
     const [searchResults, error] = await catchPromise(searchService.search(normalizedSearchString));
+    isSearching = false;
     if (error) {
       console.error(error);
       return;
@@ -225,6 +230,7 @@ function triggerFocusedResultAction(): boolean {
 function selectResult(result: SearchResult): void {
   cacheSelectedResult(result);
   result.defaultAction();
+  searchOpen = false;
 }
 
 function getDisplayedSelectedResults(
@@ -273,12 +279,18 @@ function getEmptyStateText(
   return null;
 }
 
-function getSearchResultIcon(result: SearchResult): string {
-  if (result.category === 'Tenant') {
-    return result.icon;
+function getSearchResultIcon(result: SearchResult): { className: string; content?: string } {
+  const icon = result.category === 'Tenant' 
+    ? result.icon 
+    : (EntityIcons[result.category as EntityType] ?? result.icon);
+  
+  // Handle 'mat <icon>' format for Material Icons
+  if (icon?.startsWith('mat ')) {
+    const iconName = icon.slice(4); // Remove 'mat ' prefix
+    return { className: 'material-icons-filled', content: iconName };
   }
-
-  return EntityIcons[result.category as EntityType] ?? result.icon;
+  
+  return { className: icon };
 }
 
 function cacheSelectedResult(result: SearchResult): void {
@@ -339,6 +351,10 @@ function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
       />
     </div>
 
+    <div class="search-loading-bar" class:active={isSearching}>
+      <div class="search-loading-bar-indicator"></div>
+    </div>
+
     <div class="result-list-container">
       {#if emptyStateText}
         <div class="empty-state">
@@ -351,17 +367,17 @@ function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
               {categoryResults.category}
             </div>
             {#each categoryResults.displayedResults as result}
-              <Item class="list-item" onclick={() => selectResult(result)}>
-                <Graphic class="search-icon {getSearchResultIcon(result)}" />
-                <Text class="title-text">
-                  {result.title}
-                </Text>
-
-                {#if result.infoText}
-                  <Text class="info-text">
-                    &nbsp;-&nbsp;{result.infoText}
+              <Item class="list-item {result.subtitle ? 'has-subtitle' : ''}" onclick={() => selectResult(result)}>
+                {@const iconInfo = getSearchResultIcon(result)}
+                <div class="search-icon"><i class={iconInfo.className}>{iconInfo.content ?? ''}</i></div>
+                <div class="result-content">
+                  <Text class="title-text">
+                    {result.title}
                   </Text>
-                {/if}
+                  {#if result.subtitle}
+                    <span class="subtitle-text">{result.subtitle}</span>
+                  {/if}
+                </div>
 
                 {#if result.infoComponent}
                   {@const InfoComp = result.infoComponent.component}
@@ -423,6 +439,39 @@ function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
     padding-inline: 4px;
   }
 
+  .search-loading-bar {
+    height: 2px;
+    width: 100%;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .search-loading-bar.active {
+    opacity: 1;
+  }
+
+  .search-loading-bar-indicator {
+    height: 100%;
+    width: 40%;
+    background: var(--mdc-theme-primary, #6200ee);
+    border-radius: 1px;
+    animation: loading-slide 1.2s ease-in-out infinite;
+    transform: translateX(-100%);
+  }
+
+  @keyframes loading-slide {
+    0% {
+      transform: translateX(-100%);
+    }
+    50% {
+      transform: translateX(200%);
+    }
+    100% {
+      transform: translateX(350%);
+    }
+  }
+
   .category-label {
     font-size: 11px;
     font-weight: 700;
@@ -480,10 +529,25 @@ function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
   :global(.result-list .mdc-list-item),
   :global(.result-list .mdc-deprecated-list-item) {
     min-height: 34px;
-    height: 34px;
+    height: auto;
     padding: 4px 8px;
     font-size: 13px;
+    align-items: center;
   }
+
+  :global(.result-list .has-subtitle.mdc-list-item),
+  :global(.result-list .has-subtitle.mdc-deprecated-list-item) {
+    min-height: 44px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  .search-icon i {
+    margin-right: 4px;
+    width: 24px;
+    height: 24px;
+    font-size: 24px;
+  }
+
 
   :global(.result-list .mdc-list-item__graphic),
   :global(.result-list .mdc-deprecated-list-item__graphic) {
@@ -491,6 +555,10 @@ function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
     width: 16px;
     height: 16px;
     font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   :global(.result-list .mdc-list-item__primary-text),
@@ -498,11 +566,24 @@ function persistSelectedResults(selectedResults: CachedSelectedResult[]): void {
     line-height: 1.2;
   }
 
-  :global(.info-text) {
-    opacity: 0.62;
-    font-size: 12px;
-    font-weight: 500;
-    margin-left: 4px;
+  .result-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+    gap: 1px;
+    overflow: hidden;
+  }
+
+  .subtitle-text {
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.55;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
   }
 
   :global(.action-buttons .mdc-icon-button) {

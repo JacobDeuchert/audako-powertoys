@@ -1,110 +1,162 @@
-import type { EntityType } from 'audako-core-components';
+import { SocketIOAdapter } from '@audako/chat-ui';
+import type {
+  EntityCreatedSessionEvent,
+  EntityUpdatedSessionEvent,
+  SessionBootstrapResponse,
+} from '@audako/contracts';
 import type { Subscription } from 'rxjs';
-import type { AudakoApp } from '../../../models/audako-apps';
 import { UrlUtils } from '../../../utils/url-utils';
+import {
+  dispatchEventToMainWorld,
+  ENTITY_CREATED_EVENT_NAME,
+  ENTITY_UPDATED_EVENT_NAME,
+} from '../../shared/helpers/cross-world-events';
 
-type ChatSession = {
-  opencodeUrl: string;
-  websocketUrl?: string;
-  sessionId: string;
-  isNew: boolean;
-  scadaUrl: string;
-  sessionInfo?: SessionInfoUpdateRequest & { updatedAt?: string };
-};
-
-type SessionInfoUpdateRequest = {
-  tenantId?: string;
-  groupId?: string;
-  entityType?: EntityType;
-  app?: AudakoApp;
-};
-
-export interface SessionEventEnvelope<T = unknown> {
-  type: string;
-  sessionId: string;
-  timestamp: string;
-  payload: T;
+interface SessionInfoFields {
+  tenantId: string;
+  groupId: string;
+  entityType?: string;
+  app?: string;
 }
 
-type SessionMessageHandler = (event: SessionEventEnvelope) => void;
+const AUDAKO_MCP_GATEWAY_URL = 'http://localhost:3001';
 
-const AUDAKO_MCP_GATEWAY_URL = 'http://localhost:3000';
+type EntitySessionEvent = EntityCreatedSessionEvent | EntityUpdatedSessionEvent;
+
+interface EntityEventSocket {
+  on(event: 'entity.created', listener: (event: EntityCreatedSessionEvent) => void): void;
+  on(event: 'entity.updated', listener: (event: EntityUpdatedSessionEvent) => void): void;
+  off(event: 'entity.created', listener: (event: EntityCreatedSessionEvent) => void): void;
+  off(event: 'entity.updated', listener: (event: EntityUpdatedSessionEvent) => void): void;
+}
 
 export class ChatSessionGatewayService {
   public static instance: ChatSessionGatewayService = new ChatSessionGatewayService();
-  private chatSession: ChatSession | null;
-  private urlSubscription: Subscription | null;
-  private lastSessionInfoKey: string | null;
-  private websocket: WebSocket | null;
-  private websocketUrl: string | null;
-  private sessionMessageHandlers: Set<SessionMessageHandler>;
 
-  constructor() {
-    this.chatSession = null;
-    this.urlSubscription = null;
-    this.lastSessionInfoKey = null;
-    this.websocket = null;
-    this.websocketUrl = null;
-    this.sessionMessageHandlers = new Set<SessionMessageHandler>();
+  private adapter: SocketIOAdapter | null = null;
+  private urlSubscription: Subscription | null = null;
+  private entityEventSocket: EntityEventSocket | null = null;
+  private lastSessionInfoKey: string | null = null;
+
+  public getAdapter(): SocketIOAdapter | null {
+    return this.adapter;
   }
 
-  public onSessionEvent(handler: SessionMessageHandler): () => void {
-    this.sessionMessageHandlers.add(handler);
-    return () => {
-      this.sessionMessageHandlers.delete(handler);
-    };
-  }
-
-  public onWebsocketEvent(handler: SessionMessageHandler): () => void {
-    return this.onSessionEvent(handler);
-  }
-
-  public async requestChatSession(): Promise<ChatSession> {
-    if (this.chatSession) {
-      this.startSessionInfoSync();
-      this.startWebsocketLogging();
+  public async requestChatSession(): Promise<SocketIOAdapter> {
+    if (this.adapter) {
       void this.updateSessionInfoFromCurrentUrl();
-      return Promise.resolve(this.chatSession);
+      return this.adapter;
     }
 
-    try {
-      const sessionInfo = this.resolveSessionInfoFromCurrentUrl();
-      const response = await fetch(`${AUDAKO_MCP_GATEWAY_URL}/api/session/bootstrap`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          scadaUrl: window.location.origin,
-          accessToken: localStorage.getItem('access_token') || '',
-          model: '',
-          sessionInfo: sessionInfo ?? undefined,
-        }),
-      });
+    const sessionInfo = this.resolveSessionInfoFromCurrentUrl();
 
-      if (!response.ok) {
-        throw new Error(`Failed to bootstrap chat session: ${response.statusText}`);
-      }
+    const response = await fetch(`${AUDAKO_MCP_GATEWAY_URL}/api/session/bootstrap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scadaUrl: window.location.origin,
+        accessToken: localStorage.getItem('access_token') || '',
+        sessionInfo: sessionInfo ?? undefined,
+      }),
+    });
 
-      const data = (await response.json()) as ChatSession;
+    if (!response.ok) {
+      throw new Error(`Failed to bootstrap chat session: ${response.statusText}`);
+    }
 
-      console.log('Received chat session data:', data);
-      this.chatSession = data;
-      if (data.sessionInfo) {
-        this.lastSessionInfoKey = this.createSessionInfoKey(data.sessionInfo);
-      }
-      this.startSessionInfoSync();
-      this.startWebsocketLogging();
+    const bootstrap = (await response.json()) as SessionBootstrapResponse;
+    if (bootstrap.realtime?.transport !== 'socket.io') {
+      throw new Error('Failed to bootstrap chat session: missing socket.io realtime config');
+    }
 
-      return this.chatSession;
-    } catch (error) {
-      console.error('Failed to request chat session:', error);
-      throw error;
+    if (!bootstrap.realtime.auth?.token || typeof bootstrap.realtime.auth.token !== 'string') {
+      throw new Error('Failed to bootstrap chat session: missing realtime auth token');
+    }
+
+    if (sessionInfo) {
+      this.lastSessionInfoKey = this.createSessionInfoKey(sessionInfo);
+    }
+
+    this.adapter = new SocketIOAdapter({
+      baseUrl: AUDAKO_MCP_GATEWAY_URL,
+      sessionId: bootstrap.sessionId,
+      realtime: bootstrap.realtime,
+    });
+
+    await this.adapter.init();
+    this.bindEntityEventBridge();
+
+    this.startSessionInfoSync();
+
+    return this.adapter;
+  }
+
+  public disconnect(): void {
+    if (this.adapter) {
+      this.unbindEntityEventBridge();
+      this.adapter.disconnect();
+      this.adapter = null;
+    }
+
+    if (this.urlSubscription) {
+      this.urlSubscription.unsubscribe();
+      this.urlSubscription = null;
+    }
+
+    this.lastSessionInfoKey = null;
+  }
+
+  private readonly handleEntityCreatedEvent = (event: EntityCreatedSessionEvent): void => {
+    this.handleCustomEvent(event);
+  };
+
+  private readonly handleEntityUpdatedEvent = (event: EntityUpdatedSessionEvent): void => {
+    this.handleCustomEvent(event);
+  };
+
+  private bindEntityEventBridge(): void {
+    if (!this.adapter) {
+      return;
+    }
+
+    // SocketIOAdapter no longer exposes a public custom-event hook.
+    const socket = (this.adapter as unknown as { socket?: EntityEventSocket | null }).socket;
+    if (!socket || socket === this.entityEventSocket) {
+      return;
+    }
+
+    this.unbindEntityEventBridge();
+    socket.on('entity.created', this.handleEntityCreatedEvent);
+    socket.on('entity.updated', this.handleEntityUpdatedEvent);
+    this.entityEventSocket = socket;
+  }
+
+  private unbindEntityEventBridge(): void {
+    if (!this.entityEventSocket) {
+      return;
+    }
+
+    this.entityEventSocket.off('entity.created', this.handleEntityCreatedEvent);
+    this.entityEventSocket.off('entity.updated', this.handleEntityUpdatedEvent);
+    this.entityEventSocket = null;
+  }
+
+  private handleCustomEvent(event: EntitySessionEvent): void {
+    switch (event.type) {
+      case 'entity.created':
+        console.log('[ChatSessionGateway] Entity created event:', event.payload);
+        dispatchEventToMainWorld(ENTITY_CREATED_EVENT_NAME, event.payload);
+        break;
+
+      case 'entity.updated':
+        console.log('[ChatSessionGateway] Entity updated event:', event.payload);
+        dispatchEventToMainWorld(ENTITY_UPDATED_EVENT_NAME, event.payload);
+        break;
     }
   }
 
   private startSessionInfoSync(): void {
-    if (!this.chatSession?.sessionId || this.urlSubscription) {
+    if (this.urlSubscription) {
       return;
     }
 
@@ -113,78 +165,7 @@ export class ChatSessionGatewayService {
     });
   }
 
-  private startWebsocketLogging(): void {
-    const websocketUrl = this.chatSession?.websocketUrl;
-    if (!websocketUrl) {
-      return;
-    }
-
-    if (
-      this.websocket &&
-      this.websocketUrl === websocketUrl &&
-      (this.websocket.readyState === WebSocket.OPEN ||
-        this.websocket.readyState === WebSocket.CONNECTING)
-    ) {
-      return;
-    }
-
-    this.stopWebsocketLogging();
-    this.websocketUrl = websocketUrl;
-    this.websocket = new WebSocket(websocketUrl);
-
-    this.websocket.addEventListener('open', () => {
-      console.log('[ChatSessionGatewayService] Session websocket connected:', websocketUrl);
-    });
-
-    this.websocket.addEventListener('message', event => {
-      if (typeof event.data !== 'string') {
-        console.log('[ChatSessionGatewayService] Session websocket event:', event.data);
-        return;
-      }
-
-      try {
-        const sessionEvent = JSON.parse(event.data) as SessionEventEnvelope;
-        this.handleSessionMessage(sessionEvent);
-        console.log('[ChatSessionGatewayService] Session websocket event:', sessionEvent);
-      } catch {
-        console.log('[ChatSessionGatewayService] Session websocket event:', event.data);
-      }
-    });
-
-    this.websocket.addEventListener('error', event => {
-      console.error('[ChatSessionGatewayService] Session websocket error:', event);
-    });
-
-    this.websocket.addEventListener('close', event => {
-      console.log('[ChatSessionGatewayService] Session websocket closed:', {
-        code: event.code,
-        reason: event.reason,
-        wasClean: event.wasClean,
-      });
-      this.websocket = null;
-      this.websocketUrl = null;
-    });
-  }
-
-  private stopWebsocketLogging(): void {
-    if (this.websocket) {
-      this.websocket.close();
-      this.websocket = null;
-    }
-    this.websocketUrl = null;
-  }
-
-  private handleSessionMessage(event: SessionEventEnvelope): void {
-    this.sessionMessageHandlers.forEach(handler => {
-      try {
-        handler(event);
-      } catch (error) {
-        console.error('[ChatSessionGatewayService] Session message handler failed:', error);
-      }
-    });
-  }
-
-  private resolveSessionInfoFromCurrentUrl(): SessionInfoUpdateRequest | null {
+  private resolveSessionInfoFromCurrentUrl(): SessionInfoFields | null {
     const currentPath = window.location.pathname;
     const tenantId = UrlUtils.getTenantIdFromUrl(currentPath);
     const groupId = UrlUtils.getGroupIdFromUrl(currentPath);
@@ -198,20 +179,15 @@ export class ChatSessionGatewayService {
       UrlUtils.getEntityConfigurationDetails()?.entityType ??
       UrlUtils.getEntityListDetails()?.entityType;
 
-    return {
-      tenantId,
-      groupId,
-      entityType,
-      app: app,
-    };
+    return { tenantId, groupId, entityType, app };
   }
 
-  private createSessionInfoKey(sessionInfo: SessionInfoUpdateRequest): string {
+  private createSessionInfoKey(sessionInfo: SessionInfoFields): string {
     return `${sessionInfo.tenantId}|${sessionInfo.groupId}|${sessionInfo.app ?? ''}|${sessionInfo.entityType ?? ''}`;
   }
 
   private async updateSessionInfoFromCurrentUrl(): Promise<void> {
-    if (!this.chatSession?.sessionId) {
+    if (!this.adapter) {
       return;
     }
 
@@ -226,34 +202,10 @@ export class ChatSessionGatewayService {
     }
 
     try {
-      const response = await fetch(
-        `${AUDAKO_MCP_GATEWAY_URL}/api/session/${this.chatSession.sessionId}/info`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(sessionInfo),
-        },
-      );
-
-      if (response.status === 404) {
-        this.stopWebsocketLogging();
-        this.chatSession = null;
-        this.lastSessionInfoKey = null;
-        throw new Error('Session not found while updating session info');
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Failed to update session info: ${response.status} ${errorText || response.statusText}`,
-        );
-      }
-
+      await this.adapter.updateSessionInfo(sessionInfo);
       this.lastSessionInfoKey = sessionInfoKey;
     } catch (error) {
-      console.error('Failed to update chat session info:', error);
+      console.error('[ChatSessionGateway] Failed to update session info:', error);
     }
   }
 }

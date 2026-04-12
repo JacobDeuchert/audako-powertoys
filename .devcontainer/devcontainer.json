@@ -1,0 +1,16 @@
+{
+  "$schema": "https://aka.ms/devcontainer.json",
+  "name": "Node.js & TypeScript",
+  "build": {
+    "dockerfile": "dockerfile",
+    "context": ".."
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/audako-powertoys,type=bind,consistency=cached",
+  "workspaceFolder": "/workspace/audako-powertoys",
+  "initializeCommand": "mkdir -p \"${localEnv:HOME:/home/jacob}/.local/share/opencode\"",
+  "postCreateCommand": "/init.sh",
+  "mounts": [
+    "type=bind,source=${localEnv:HOME:/home/jacob}/.local/share/opencode,target=/mnt/opencode-host"
+  ],
+  "remoteUser": "node"
+}

@@ -24,7 +24,9 @@
         "build/injected-scripts.js",
         "build/content.js",
         "build/content.css",
-        "build/*.woff2"
+        "build/pdf.worker.min.mjs",
+        "build/*.woff2",
+        "build/*.js"
       ],
       "matches": [
         "<all_urls>"

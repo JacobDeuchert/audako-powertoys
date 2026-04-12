@@ -1,0 +1,4 @@
+FROM mcr.microsoft.com/devcontainers/typescript-node:24
+
+COPY ./.devcontainer/init.sh /init.sh
+RUN chmod +x /init.sh
