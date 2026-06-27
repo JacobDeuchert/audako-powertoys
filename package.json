@@ -12,7 +12,7 @@
     "build:watch": "vite build --watch",
     "build:debug:watch": "vite build --mode debug --watch",
     "preview": "vite preview",
-    "update-core": "npm i https://github.com/JacobDeuchert/audako-core-components",
+    "update-core": "npm i github:JacobDeuchert/audako-core-components github:JacobDeuchert/audako-core",
     "update-chat-ui": "npm i ../audako-mcp-gateway/packages/chat-ui"
   },
   "repository": {
@@ -26,12 +26,13 @@
   },
   "homepage": "https://github.com/JacobDeuchert/audako-powertoys#readme",
   "dependencies": {
-    "@audako/chat-ui": "file:../audako-mcp-gateway/packages/chat-ui",
+    "@audako/chat-ui": "file:../../home/node/Development/github/audako-mcp-gateway/packages/chat-ui",
     "@audako/contracts": "file:../audako-mcp-gateway/packages/contracts",
     "@fortawesome/fontawesome-free": "^7.2.0",
     "@smui/common": "^8.0.3",
     "@webcomponents/custom-elements": "^1.6.0",
     "@webcomponents/webcomponentsjs": "^2.8.0",
+    "audako-core": "github:JacobDeuchert/audako-core",
     "audako-core-components": "github:JacobDeuchert/audako-core-components",
     "axios": "^1.7.9",
     "luxon": "^3.7.2",
