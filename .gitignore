@@ -10,6 +10,12 @@ node_modules
 *.log
 *.local
 
+# Devcontainer cached credentials
+.devcontainer/.cache/
+
+# Claude Code local settings & skills
+.claude/
+
 # IDE
 .vscode/*
 !.vscode/settings.json

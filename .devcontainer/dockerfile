@@ -1,4 +1,38 @@
 FROM mcr.microsoft.com/devcontainers/typescript-node:24
 
+WORKDIR /workspace/audako-powertoys
+
+RUN curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash && \
+    BUN_INSTALL=/usr/local bun install -g typescript typescript-language-server @biomejs/biome
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3-pip && \
+    pip3 install --break-system-packages markitdown && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Claude Code via native installer and make available system-wide
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && cp /root/.local/bin/claude /usr/local/bin/claude \
+    && chmod +x /usr/local/bin/claude
+
+# Install OpenCode via native installer and make available system-wide
+RUN curl -fsSL https://opencode.ai/install | bash \
+    && cp /root/.opencode/bin/opencode /usr/local/bin/opencode \
+    && chmod +x /usr/local/bin/opencode
+
+# Ensure node home directories are writable (pre-create opencode dir so bind mount doesn't create it as root)
+RUN mkdir -p /home/node/.local/state \
+             /home/node/.local/bin \
+             /home/node/.local/share/opencode \
+             /root/.local/share/opencode \
+    && chown -R node:node /home/node/.local
+
+# Symlink the sibling audako-mcp-gateway repo (mounted at /home/node/Development) into the
+# workspace so relative `file:` deps like chat-ui resolve. Dangling at build time; resolves
+# once the Development bind mount is present at runtime.
+RUN mkdir -p /workspace \
+    && ln -s /home/node/Development/github/audako-mcp-gateway /workspace/audako-mcp-gateway \
+    && chown -h node:node /workspace/audako-mcp-gateway
+
 COPY ./.devcontainer/init.sh /init.sh
 RUN chmod +x /init.sh

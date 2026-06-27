@@ -1,16 +1,38 @@
 {
-  "$schema": "https://aka.ms/devcontainer.json",
-  "name": "Node.js & TypeScript",
+  "$schema": "https://aka.ms/vscode-remote/devcontainer.json",
+  "name": "audako powertoys",
   "build": {
     "dockerfile": "dockerfile",
     "context": ".."
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/audako-powertoys,type=bind,consistency=cached",
   "workspaceFolder": "/workspace/audako-powertoys",
-  "initializeCommand": "mkdir -p \"${localEnv:HOME:/home/jacob}/.local/share/opencode\"",
-  "postCreateCommand": "/init.sh",
-  "mounts": [
-    "type=bind,source=${localEnv:HOME:/home/jacob}/.local/share/opencode,target=/mnt/opencode-host"
+  "initializeCommand": "bash .devcontainer/init.sh",
+  "postCreateCommand": "npm install",
+  "runArgs": [
+    "--workdir",
+    "/workspace/audako-powertoys"
   ],
-  "remoteUser": "node"
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/Development,target=/home/node/Development,type=bind,readonly",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/node/.claude,type=bind",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude.json,target=/home/node/.claude.json,type=bind",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/root/.claude,type=bind",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude.json,target=/root/.claude.json,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.cache/opencode-auth.json,target=/home/node/.local/share/opencode/auth.json,type=bind",
+    "source=${localWorkspaceFolder}/.devcontainer/.cache/opencode-auth.json,target=/root/.local/share/opencode/auth.json,type=bind"
+  ],
+  "remoteUser": "node",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "biomejs.biome",
+        "svelte.svelte-vscode",
+        "Anthropic.claude-code",
+        "GitHub.copilot-chat",
+        "streetsidesoftware.code-spell-checker",
+        "eamodio.gitlens"
+      ]
+    }
+  }
 }

@@ -1,26 +1,33 @@
-#!/usr/bin/env bash
+#!/bin/bash
+set -e
 
-set -euo pipefail
+mkdir -p .devcontainer/.cache
 
-export DOTNET_ROOT="${HOME}/.dotnet"
-export PATH="${DOTNET_ROOT}:${DOTNET_ROOT}/tools:${PATH}"
-
-opencode_target_dir="${HOME}/.local/share/opencode"
-mkdir -p "${opencode_target_dir}"
-
-if [ ! -f "${opencode_target_dir}/auth.json" ] && [ -f /mnt/opencode-host/auth.json ]; then
-  cp /mnt/opencode-host/auth.json "${opencode_target_dir}/auth.json"
-  chmod 600 "${opencode_target_dir}/auth.json"
+# OpenCode auth: copy if present on host, otherwise ensure a placeholder file exists
+# so the bind mount in devcontainer.json succeeds even without OpenCode installed.
+opencode_auth=""
+if [[ "$OSTYPE" == "linux-gnu"* || "$OSTYPE" == "darwin"* ]]; then
+    opencode_auth="$HOME/.local/share/opencode/auth.json"
+elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+    opencode_auth="$APPDATA/opencode/auth.json"
 fi
 
-if ! command -v ng >/dev/null 2>&1; then
-  npm install -g @angular/cli
+# If a previous run left .cache/opencode-auth.json as an empty dir (Docker auto-create), drop it.
+if [ -d .devcontainer/.cache/opencode-auth.json ] && [ -z "$(ls -A .devcontainer/.cache/opencode-auth.json 2>/dev/null)" ]; then
+    rmdir .devcontainer/.cache/opencode-auth.json
 fi
 
-if ! command -v typescript-language-server >/dev/null 2>&1 || ! command -v biome >/dev/null 2>&1; then
-  npm install -g typescript typescript-language-server @biomejs/biome
+if [ -n "$opencode_auth" ] && [ -f "$opencode_auth" ]; then
+    cp "$opencode_auth" .devcontainer/.cache/opencode-auth.json
+elif [ ! -f .devcontainer/.cache/opencode-auth.json ]; then
+    printf '{}' > .devcontainer/.cache/opencode-auth.json
 fi
 
-if ! command -v opencode >/dev/null 2>&1; then
-  curl -fsSL https://opencode.ai/install | bash
+# Claude credentials: bind mounts require ~/.claude (dir) and ~/.claude.json (file) on host.
+# Without these, Docker auto-creates both as empty dirs, breaking the .claude.json file mount
+# on the next start. Recover from that state and write placeholders so the container always boots.
+if [ -d "$HOME/.claude.json" ] && [ -z "$(ls -A "$HOME/.claude.json" 2>/dev/null)" ]; then
+    rmdir "$HOME/.claude.json"
 fi
+mkdir -p "$HOME/.claude"
+[ -f "$HOME/.claude.json" ] || printf '{}' > "$HOME/.claude.json"
