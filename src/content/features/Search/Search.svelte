@@ -91,8 +91,12 @@ window.addEventListener('keydown', (event: KeyboardEvent) => {
   if (event.ctrlKey && event.code === 'Space') {
     event.preventDefault();
     event.stopImmediatePropagation();
-    searchOpen = true;
-    focusSearchInput(true);
+    if (searchOpen) {
+      searchOpen = false;
+    } else {
+      searchOpen = true;
+      focusSearchInput(true);
+    }
     return;
   }
 

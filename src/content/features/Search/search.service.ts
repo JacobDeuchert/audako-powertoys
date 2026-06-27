@@ -21,6 +21,7 @@ export class SearchService {
     EntityType.Formula,
     EntityType.DataSource,
     EntityType.DataConnection,
+    EntityType.ReportTemplate,
     'Command',
   ];
 
@@ -58,10 +59,13 @@ export class SearchService {
         }
 
         const searchQuery = this.categorieQueries[category];
-        const categoryResults: SearchResult[] = await searchQuery.query(
-          searchTerm,
-          tenantRestriction,
-        );
+        let categoryResults: SearchResult[] = [];
+        try {
+          categoryResults = await searchQuery.query(searchTerm, tenantRestriction);
+        } catch (error) {
+          console.error(`Search query for category "${category}" failed`, error);
+          return null;
+        }
 
         if (!categoryResults?.length) {
           return null;
@@ -120,6 +124,11 @@ export class SearchService {
       [EntityType.DataConnection]: new GenericEntityQuery(
         EntityType.DataConnection,
         AudakoApp.Configuration,
+      ),
+      [EntityType.ReportTemplate]: new GenericEntityQuery(
+        EntityType.ReportTemplate,
+        AudakoApp.Configuration,
+        'fas fa-file-chart-column',
       ),
       ['Command']: new CommandQuery(),
     };

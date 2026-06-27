@@ -7,6 +7,7 @@ export class GenericEntityQuery extends SearchQuery {
   constructor(
     public entityType: EntityType,
     public defaultApp: AudakoApp,
+    public iconOverride?: string,
   ) {
     super();
   }
@@ -29,7 +30,7 @@ export class GenericEntityQuery extends SearchQuery {
           category: this.entityType,
           title: entity.Name.Value,
           subtitle,
-          icon: EntityIcons[this.entityType],
+          icon: this.iconOverride ?? EntityIcons[this.entityType],
           infoText: tenant?.Name,
           tooltip: () => this.entityNameService.resolvePathName(entity.Path ?? []),
           context: {
