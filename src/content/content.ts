@@ -1,4 +1,5 @@
 import '@webcomponents/custom-elements';
+import '@audako/chat-ui/style.css';
 import './global.css';
 import '../../node_modules/svelte-material-ui/themes/svelte.css';
 // import for tsyringe
@@ -12,6 +13,7 @@ import { mount } from 'svelte';
 import { container } from 'tsyringe';
 import App from './App.svelte';
 import {
+  dispatchChatBootstrapToMainWorld,
   ENTITY_CREATED_EVENT_NAME,
   EntityCreatedEventPayload,
   dispatchEventToMainWorld,
@@ -80,6 +82,12 @@ async function initialize() {
   setGlobalDependencyContainer(container);
 
   registerCoreServices(config, localStorage.getItem('access_token') || '');
+
+  dispatchChatBootstrapToMainWorld({
+    extensionBaseUrl: chrome.runtime.getURL(''),
+    contentCssUrl: chrome.runtime.getURL('build/content.css'),
+    pdfWorkerUrl: chrome.runtime.getURL('build/pdf.worker.min.mjs'),
+  });
 
   console.info(container);
 

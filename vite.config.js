@@ -18,7 +18,7 @@ const patchPdfWorkerRuntimeUrl = filePath => {
   const fileContents = readFileSync(filePath, 'utf8');
   const patchedContents = fileContents.replaceAll(
     'new URL("/build/pdf.worker.min.mjs", import_meta.url).toString()',
-    `chrome.runtime.getURL("${PDF_WORKER_PATH}")`,
+    `(globalThis.__audakoPowertoysPdfWorkerUrl || (typeof chrome !== "undefined" && chrome.runtime?.getURL ? chrome.runtime.getURL("${PDF_WORKER_PATH}") : "${PDF_WORKER_PATH}"))`,
   );
 
   if (patchedContents !== fileContents) {

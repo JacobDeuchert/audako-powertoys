@@ -2,6 +2,7 @@ export const EXTENSION_WORLD_SOURCE = 'audako-powertoys-extension' as const;
 export const MAIN_WORLD_SOURCE = 'audako-powertoys-main' as const;
 export const EXTENSION_EVENT_MESSAGE_TYPE = 'audako-powertoys:event' as const;
 export const MAIN_WORLD_EVENT_ACK_TYPE = 'audako-powertoys:event:ack' as const;
+export const CHAT_BOOTSTRAP_MESSAGE_TYPE = 'audako-powertoys:chat:bootstrap' as const;
 
 export const ENTITY_UPDATED_EVENT_NAME = 'entity.updated' as const;
 export const ENTITY_CREATED_EVENT_NAME = 'entity.created' as const;
@@ -39,6 +40,16 @@ export type MainWorldEventAckMessage = {
   };
 };
 
+export type ChatBootstrapMessage = {
+  source: typeof EXTENSION_WORLD_SOURCE;
+  type: typeof CHAT_BOOTSTRAP_MESSAGE_TYPE;
+  payload?: {
+    extensionBaseUrl?: string;
+    contentCssUrl?: string;
+    pdfWorkerUrl?: string;
+  };
+};
+
 export const ALLOWED_ENTITY_EVENT_NAMES = new Set<string>(ENTITY_EVENT_NAMES);
 
 function isRecord(value: any): value is Record<string, any> {
@@ -62,6 +73,14 @@ export function isMainWorldEventAckMessage(value: any): value is MainWorldEventA
     isRecord(value) &&
     value.source === MAIN_WORLD_SOURCE &&
     value.type === MAIN_WORLD_EVENT_ACK_TYPE
+  );
+}
+
+export function isChatBootstrapMessage(value: any): value is ChatBootstrapMessage {
+  return (
+    isRecord(value) &&
+    value.source === EXTENSION_WORLD_SOURCE &&
+    value.type === CHAT_BOOTSTRAP_MESSAGE_TYPE
   );
 }
 
@@ -95,6 +114,16 @@ export function dispatchEventAckToExtensionWorld(
       event: eventName,
       ok,
     },
+  };
+
+  window.postMessage(message, '*');
+}
+
+export function dispatchChatBootstrapToMainWorld(payload: ChatBootstrapMessage['payload']): void {
+  const message: ChatBootstrapMessage = {
+    source: EXTENSION_WORLD_SOURCE,
+    type: CHAT_BOOTSTRAP_MESSAGE_TYPE,
+    payload,
   };
 
   window.postMessage(message, '*');

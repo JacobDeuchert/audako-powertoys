@@ -2,20 +2,28 @@
   import { onMount } from 'svelte';
   import { ChatWidget, type ChatWidgetConfig } from '@audako/chat-ui';
   import CircularProgress from '@smui/circular-progress';
-  import '@material/circular-progress/dist/mdc.circular-progress.css';
   import { Icon } from '@smui/common';
-  import IconButton from '@smui/icon-button';
-  import '@audako/chat-ui/style.css';
+  import Snackbar, { Actions as SnackbarActions, Label as SnackbarLabel } from '@smui/snackbar';
+  // NOTE: Global stylesheets (@audako/chat-ui/style.css, MDC component CSS) are
+  // imported once by the extension world in content.ts and bundled into the
+  // single content.css that both worlds inject into their shadow roots. Importing
+  // them here too would make Rollup hoist them into a shared chunk that nothing
+  // links, leaving the widget unstyled — so we deliberately rely on content.css.
   import { ChatSessionGatewayService } from './chat-session-gateway.service';
+  import { ensureMainWorldCoreServices } from '../../injected-scripts/core-services';
+  import TemplateConfigDialog from './TemplateConfigDialog.svelte';
 
   let isOpen = $state(false);
+  let isConfigOpen = $state(false);
   let hasOpened = $state(false);
   let config: ChatWidgetConfig | null = $state(null);
+  let savedSnackbar: Snackbar | null = $state(null);
   let bootstrapError = $state<string | null>(null);
   let isBootstrapping = $state(false);
   let hasBootstrapAttempted = $state(false);
   let headerToggleButton: HTMLButtonElement | null = null;
   let headerToggleHost: HTMLDivElement | null = null;
+  let headerToggleShadowRoot: ShadowRoot | null = null;
   let headerObserver: MutationObserver | null = null;
 
   const HEADER_ACTIONS_SELECTOR = '[audako4headeractions]';
@@ -67,26 +75,54 @@
     headerToggleHost.style.zIndex = '1';
     headerToggleHost.style.pointerEvents = 'auto';
 
+    // Isolate the header button from the host page's styles. The button lives in
+    // the page's header (light DOM), so a dedicated shadow root keeps its look
+    // stable regardless of the surrounding application CSS.
+    headerToggleShadowRoot = headerToggleHost.attachShadow({ mode: 'open' });
+    headerToggleShadowRoot.innerHTML = `
+      <style>
+        :host {
+          all: initial;
+          color: inherit;
+          display: inline-flex;
+          align-items: center;
+          position: relative;
+          z-index: 1;
+          pointer-events: auto;
+        }
+        button {
+          all: initial;
+          box-sizing: border-box;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          padding: 0;
+          border: none;
+          border-radius: 999px;
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+          transition: background-color 140ms ease;
+          outline: none;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 1;
+          pointer-events: auto;
+        }
+        svg {
+          display: block;
+          width: 24px;
+          height: 24px;
+          fill: currentColor;
+        }
+      </style>
+    `;
+
     headerToggleButton = document.createElement('button');
     headerToggleButton.type = 'button';
     headerToggleButton.innerHTML = CHAT_BUTTON_ICON;
-    headerToggleButton.style.display = 'inline-flex';
-    headerToggleButton.style.alignItems = 'center';
-    headerToggleButton.style.justifyContent = 'center';
-    headerToggleButton.style.width = '40px';
-    headerToggleButton.style.height = '40px';
-    headerToggleButton.style.padding = '0';
-    headerToggleButton.style.border = 'none';
-    headerToggleButton.style.borderRadius = '999px';
-    headerToggleButton.style.background = 'transparent';
-    headerToggleButton.style.color = 'inherit';
-    headerToggleButton.style.cursor = 'pointer';
-    headerToggleButton.style.transition = 'background-color 140ms ease';
-    headerToggleButton.style.outline = 'none';
-    headerToggleButton.style.flexShrink = '0';
-    headerToggleButton.style.position = 'relative';
-    headerToggleButton.style.zIndex = '1';
-    headerToggleButton.style.pointerEvents = 'auto';
     headerToggleButton.setAttribute('aria-controls', 'audako-llm-chat-panel');
     headerToggleButton.addEventListener('click', toggleChat);
 
@@ -114,7 +150,7 @@
       headerToggleButton.style.background = isOpen ? 'rgba(0, 87, 217, 0.12)' : 'transparent';
     });
 
-    headerToggleHost.appendChild(headerToggleButton);
+    headerToggleShadowRoot.appendChild(headerToggleButton);
     attachHeaderToggleButton();
     updateHeaderToggleButton();
   }
@@ -136,6 +172,7 @@
       headerObserver = null;
       headerToggleHost?.remove();
       headerToggleHost = null;
+      headerToggleShadowRoot = null;
       headerToggleButton = null;
     };
   });
@@ -158,6 +195,7 @@
     isBootstrapping = true;
 
     try {
+      await ensureMainWorldCoreServices();
       const adapter = await ChatSessionGatewayService.instance.requestChatSession();
 
       config = {
@@ -165,6 +203,7 @@
         title: 'Audako Assistant',
         placeholder: 'Type a message',
         showThinking: true,
+        showClose: true,
       };
     } catch (error) {
       bootstrapError = error instanceof Error ? error.message : 'Failed to bootstrap chat session';
@@ -193,6 +232,16 @@
     hasBootstrapAttempted = false;
   }
 
+  // The native chat-ui header has no settings button, so this currently has no
+  // trigger. It's kept ready to be wired to a custom `/templates` slash command
+  // once chat-ui forwards unknown slash commands to the host.
+  async function openConfig(): Promise<void> {
+    // The template dialog resolves UserProfileHttpService from the DI container,
+    // so make sure the main-world core services are registered before it loads.
+    await ensureMainWorldCoreServices();
+    isConfigOpen = true;
+  }
+
   $effect(() => {
     updateHeaderToggleButton();
 
@@ -206,21 +255,11 @@
 
 {#if hasOpened}
   <section id="audako-llm-chat-panel" class="chat-panel" class:open={isOpen} aria-hidden={!isOpen}>
-    {#snippet button()}
-      <div class="chat-header">
-        <div class="chat-header-title">
-          <Icon class="material-icons chat-header-icon">smart_toy</Icon>
-          Assistant
-        </div>
-        <IconButton type="button" class="material-icons close-button" onclick={closeChat} aria-label="Close chat">
-          close
-        </IconButton>
-      </div>
-    {/snippet}
     <div class="chat-content">
       {#if bootstrapError}
         <div class="chat-error" role="alert" aria-live="assertive">
-          <div class="chat-error-title">Assistant failed to start</div>
+          <Icon class="material-icons chat-error-icon">cloud_off</Icon>
+          <div class="chat-error-title">Assistant unavailable</div>
           <div class="chat-error-message">{bootstrapError}</div>
           <button type="button" class="chat-error-close" onclick={closeChat}>Close</button>
         </div>
@@ -229,11 +268,24 @@
           <CircularProgress indeterminate />
         </div>
       {:else}
-        <ChatWidget {config} header={button}></ChatWidget>
+        <ChatWidget {config} onClose={closeChat}></ChatWidget>
       {/if}
     </div>
   </section>
 {/if}
+
+<!--
+  Rendered outside .chat-panel on purpose: the panel uses transform + overflow:
+  hidden, which would turn it into the containing block for the dialog's
+  position: fixed surface and clip it to the popup. Kept as a top-level sibling
+  so the dialog overlays the whole screen.
+-->
+<TemplateConfigDialog bind:open={isConfigOpen} onsaved={() => savedSnackbar?.open()} />
+
+<Snackbar bind:this={savedSnackbar} class="tcd-saved-snackbar">
+  <SnackbarLabel>Templates saved — applied on the next chat session.</SnackbarLabel>
+  <SnackbarActions></SnackbarActions>
+</Snackbar>
 
 <style>
   .chat-panel {
@@ -264,32 +316,8 @@
     pointer-events: auto;
   }
 
-  .chat-header {
-    height: 42px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 10px 0 14px;
-    font-size: 16px;
-    font-weight: 700;
-  }
-
-  .chat-header-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .chat-header-title :global(.chat-header-icon) {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-  }
-
-  :global(.close-button.mdc-icon-button) {
-    --mdc-icon-button-size: 34px;
-    --mdc-icon-size: 18px;
-    color: #4a4a4a;
+  :global(.tcd-saved-snackbar) {
+    z-index: 2147483646;
   }
 
   .chat-content {
@@ -311,30 +339,42 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 24px;
+    text-align: center;
+    gap: 16px;
+    padding: 32px 28px;
     background: #fff;
     color: #1f2937;
   }
 
+  .chat-error :global(.chat-error-icon) {
+    font-size: 72px;
+    width: 72px;
+    height: 72px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+
   .chat-error-title {
-    font-size: 18px;
+    font-size: 22px;
     font-weight: 700;
+    letter-spacing: -0.01em;
   }
 
   .chat-error-message {
-    font-size: 14px;
-    line-height: 1.5;
-    color: #b91c1c;
+    font-size: 15px;
+    line-height: 1.55;
+    color: #6b7280;
     word-break: break-word;
+    max-width: 340px;
   }
 
   .chat-error-close {
+    margin-top: 8px;
     border: none;
     border-radius: 8px;
-    padding: 10px 14px;
+    padding: 10px 22px;
     font-size: 14px;
     font-weight: 600;
     color: #fff;

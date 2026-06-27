@@ -1,6 +1,5 @@
 <script lang="ts">
 import { StorageUtils } from '../utils/storage-utils';
-import LlmChat from './features/LlmChat/LlmChat.svelte';
 import Search from './features/Search/Search.svelte';
 
 async function initFeatures(): Promise<void> {
@@ -16,7 +15,6 @@ initFeatures();
 
 <main>
   <Search></Search>
-  <LlmChat></LlmChat>
 
   <div class="powertoys-label">Audako - PowerToys</div>
 </main>
